@@ -1,20 +1,5 @@
-import onChange from 'on-change';
-import i18n from './i18n.js';
-
-const initialState = {
-  form: {
-    status: 'filling',
-    errors: {},
-    values: { url: '' },
-    valid: false,
-  },
-  feeds: [],
-  posts: [],
-  ui: {
-    language: 'ru',
-    loading: false,
-  },
-};
+import onChange from 'on-change'
+import i18n from './i18n.js'
 
 export const createView = (state, handlers) => {
   const elements = {
@@ -31,49 +16,46 @@ export const createView = (state, handlers) => {
       fullArticle: document.querySelector('.full-article'),
       close: document.querySelector('.modal-footer .btn-secondary'),
     },
-  };
+  }
 
   const renderForm = () => {
-    const { form, ui } = state;
+    const { form, ui } = state
     
-    elements.input.value = form.values.url;
+    elements.input.value = form.values.url
 
     if (form.status === 'invalid') {
-      elements.input.classList.add('is-invalid');
-      elements.feedback.classList.add('text-danger');
-      elements.feedback.textContent = form.errors.url || '';
+      elements.input.classList.add('is-invalid')
+      elements.feedback.classList.add('text-danger')
+      elements.feedback.textContent = form.errors.url || ''
     } else {
-      elements.input.classList.remove('is-invalid');
-      elements.feedback.classList.remove('text-danger');
-      elements.feedback.textContent = '';
+      elements.input.classList.remove('is-invalid')
+      elements.feedback.classList.remove('text-danger')
+      elements.feedback.textContent = ''
     }
 
-    // Блокировка формы во время загрузки
-    elements.submitButton.disabled = form.status === 'validating' || ui.loading;
-    elements.input.disabled = ui.loading;
+    elements.submitButton.disabled = form.status === 'validating' || ui.loading
+    elements.input.disabled = ui.loading
     
     if (form.status === 'validating' || ui.loading) {
-      elements.submitButton.textContent = i18n.t('ui.adding');
       elements.submitButton.innerHTML = `
         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
         ${i18n.t('ui.adding')}
-      `;
+      `
     } else {
-      elements.submitButton.textContent = i18n.t('ui.add');
-      elements.submitButton.innerHTML = i18n.t('ui.add');
+      elements.submitButton.textContent = i18n.t('ui.add')
+      elements.submitButton.innerHTML = i18n.t('ui.add')
     }
 
     if (form.status === 'valid') {
-      elements.input.focus();
-      elements.input.value = '';
+      elements.input.focus()
+      elements.input.value = ''
     }
-  };
+  }
 
-  // Рендер списка фидов
   const renderFeeds = () => {
-    const { feeds } = state;
+    const { feeds } = state
     
-    elements.feedsContainer.innerHTML = '';
+    elements.feedsContainer.innerHTML = ''
 
     if (feeds.length === 0) {
       elements.feedsContainer.innerHTML = `
@@ -82,20 +64,20 @@ export const createView = (state, handlers) => {
             <p class="mb-0">${i18n.t('ui.feeds')} (0)</p>
           </div>
         </div>
-      `;
-      return;
+      `
+      return
     }
 
-    const feedsTitle = document.createElement('h2');
-    feedsTitle.className = 'h4 mb-3';
-    feedsTitle.textContent = `${i18n.t('titles.feeds')} (${feeds.length})`;
+    const feedsTitle = document.createElement('h2')
+    feedsTitle.className = 'h4 mb-3'
+    feedsTitle.textContent = `${i18n.t('titles.feeds')} (${feeds.length})`
 
-    const feedsList = document.createElement('div');
-    feedsList.className = 'row';
+    const feedsList = document.createElement('div')
+    feedsList.className = 'row'
 
     feeds.forEach((feed) => {
-      const feedElement = document.createElement('div');
-      feedElement.className = 'col-12 mb-3';
+      const feedElement = document.createElement('div')
+      feedElement.className = 'col-12 mb-3'
       feedElement.innerHTML = `
         <div class="card h-100">
           <div class="card-body">
@@ -104,19 +86,18 @@ export const createView = (state, handlers) => {
             <small class="text-muted">${feed.url}</small>
           </div>
         </div>
-      `;
-      feedsList.appendChild(feedElement);
-    });
+      `
+      feedsList.appendChild(feedElement)
+    })
 
-    elements.feedsContainer.appendChild(feedsTitle);
-    elements.feedsContainer.appendChild(feedsList);
-  };
+    elements.feedsContainer.appendChild(feedsTitle)
+    elements.feedsContainer.appendChild(feedsList)
+  }
 
-  // Рендер списка постов
   const renderPosts = () => {
-    const { posts } = state;
+    const { posts, readPosts } = state
     
-    elements.postsContainer.innerHTML = '';
+    elements.postsContainer.innerHTML = ''
 
     if (posts.length === 0) {
       elements.postsContainer.innerHTML = `
@@ -125,115 +106,163 @@ export const createView = (state, handlers) => {
             <p class="mb-0">${i18n.t('ui.posts')} (0)</p>
           </div>
         </div>
-      `;
-      return;
+      `
+      return
     }
 
-    const postsTitle = document.createElement('h2');
-    postsTitle.className = 'h4 mb-3';
-    postsTitle.textContent = `${i18n.t('titles.posts')} (${posts.length})`;
+    const unreadCount = posts.filter(post => !readPosts.has(post.id)).length
 
-    const postsList = document.createElement('div');
-    postsList.className = 'row';
+    const postsTitle = document.createElement('h2')
+    postsTitle.className = 'h4 mb-3'
+    postsTitle.textContent = `${i18n.t('titles.posts')} (${posts.length}, новых: ${unreadCount})`
+
+    const postsList = document.createElement('div')
+    postsList.className = 'row'
 
     posts.forEach((post) => {
-      const postElement = document.createElement('div');
-      postElement.className = 'col-12 mb-3';
+      const isRead = readPosts.has(post.id)
+      
+      const titleClass = isRead ? 'fw-normal' : 'fw-bold'
+      const cardBorderClass = isRead ? 'border-light' : 'border-primary'
+      const badge = isRead ? '' : '<span class="badge bg-primary ms-2">NEW</span>'
+      
+      const postDate = post.pubDate ? new Date(post.pubDate).toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }) : 'Дата не указана'
+
+      const postElement = document.createElement('div')
+      postElement.className = `col-12 mb-3 ${isRead ? '' : 'highlight-new'}`
       postElement.innerHTML = `
-        <div class="card h-100">
+        <div class="card h-100 ${cardBorderClass}" data-post-id="${post.id}">
           <div class="card-body d-flex flex-column">
-            <h5 class="card-title">${post.title}</h5>
+            <h5 class="card-title ${titleClass}">
+              ${post.title}
+              ${badge}
+            </h5>
             <p class="card-text flex-grow-1">${post.description}</p>
-            <div class="d-flex justify-content-between align-items-center">
-              <a href="${post.link}" 
-                 class="btn btn-outline-primary btn-sm" 
-                 target="_blank" 
-                 rel="noopener noreferrer">
-                ${i18n.t('ui.read')}
-              </a>
-              <button class="btn btn-outline-secondary btn-sm" 
-                      data-bs-toggle="modal" 
-                      data-bs-target="#modal"
-                      data-post-id="${post.id}">
-                ${i18n.t('ui.view')}
-              </button>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+              <small class="text-muted">${postDate}</small>
+              <div class="btn-group" role="group">
+                <a href="${post.link}" 
+                   class="btn btn-outline-primary btn-sm read-full"
+                   target="_blank" 
+                   rel="noopener noreferrer"
+                   data-post-id="${post.id}">
+                  ${i18n.t('ui.read')}
+                </a>
+                <button class="btn btn-outline-secondary btn-sm preview-btn" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#modal"
+                        data-post-id="${post.id}">
+                  ${i18n.t('ui.view')}
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      `;
-      postsList.appendChild(postElement);
-    });
+      `
+      postsList.appendChild(postElement)
+    })
 
-    elements.postsContainer.appendChild(postsTitle);
-    elements.postsContainer.appendChild(postsList);
-  };
+    elements.postsContainer.appendChild(postsTitle)
+    elements.postsContainer.appendChild(postsList)
+  }
 
-  // Настройка модального окна
   const setupModal = () => {
-    elements.modal.fullArticle.textContent = i18n.t('ui.read');
-    elements.modal.close.textContent = i18n.t('ui.close');
+    elements.modal.fullArticle.textContent = i18n.t('ui.read')
+    elements.modal.close.textContent = i18n.t('ui.close')
 
     document.addEventListener('click', (event) => {
-      if (event.target.matches('[data-bs-toggle="modal"]')) {
-        const button = event.target;
-        const postId = button.getAttribute('data-post-id');
-        const post = state.posts.find(p => p.id === postId);
+      const previewBtn = event.target.closest('.preview-btn')
+      const readFullBtn = event.target.closest('.read-full')
+      
+      if (previewBtn) {
+        const postId = previewBtn.getAttribute('data-post-id')
+        const post = state.posts.find(p => p.id === postId)
         
         if (post) {
-          elements.modal.title.textContent = post.title;
-          elements.modal.body.textContent = post.description;
-          elements.modal.fullArticle.href = post.link;
+          elements.modal.title.textContent = post.title
+          elements.modal.body.textContent = post.description
+          elements.modal.fullArticle.href = post.link
+          elements.modal.fullArticle.setAttribute('data-post-id', postId)
+          
+          handlers.onPostRead(postId)
+          handlers.onModalOpen(postId)
         }
       }
-    });
-  };
+      
+      if (readFullBtn && readFullBtn.getAttribute('data-post-id')) {
+        const postId = readFullBtn.getAttribute('data-post-id')
+        handlers.onPostRead(postId)
+      }
+    })
 
-  // Наблюдатель за состоянием
-  const watchedState = onChange(state, (path, value, previousValue) => {
-    console.log(`Изменение в состоянии: ${path}`, value);
-    
+    elements.modal.fullArticle.addEventListener('click', (event) => {
+      const postId = event.target.getAttribute('data-post-id')
+      if (postId) {
+        handlers.onPostRead(postId)
+      }
+    })
+
+    elements.modal.element.addEventListener('show.bs.modal', (event) => {
+      const button = event.relatedTarget
+      if (button && button.classList.contains('preview-btn')) {
+        const postId = button.getAttribute('data-post-id')
+      }
+    })
+
+    elements.modal.element.addEventListener('hidden.bs.modal', () => {
+      handlers.onModalClose()
+    })
+  }
+
+  const watchedState = onChange(state, (path, value) => {
     if (path.startsWith('form') || path === 'ui.loading') {
-      renderForm();
+      renderForm()
     }
     
     if (path === 'feeds') {
-      renderFeeds();
+      renderFeeds()
     }
     
-    if (path === 'posts') {
-      renderPosts();
+    if (path === 'posts' || path === 'readPosts') {
+      renderPosts()
     }
     
     if (path === 'ui.language') {
       i18n.changeLanguage(value).then(() => {
-        renderForm();
-        renderFeeds();
-        renderPosts();
-        setupModal();
-      });
+        renderForm()
+        renderFeeds()
+        renderPosts()
+        setupModal()
+      })
     }
-  });
+  })
 
   const initEventListeners = () => {
     elements.form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const formData = new FormData(elements.form);
-      const url = formData.get('url').trim();
-      handlers.onFormSubmit(url);
-    });
+      e.preventDefault()
+      const formData = new FormData(elements.form)
+      const url = formData.get('url').trim()
+      handlers.onFormSubmit(url)
+    })
 
     elements.input.addEventListener('input', () => {
       if (state.form.status === 'invalid') {
-        handlers.onInputChange();
+        handlers.onInputChange()
       }
-    });
-  };
+    })
+  }
 
-  initEventListeners();
-  setupModal();
-  renderForm();
-  renderFeeds();
-  renderPosts();
+  initEventListeners()
+  setupModal()
+  renderForm()
+  renderFeeds()
+  renderPosts()
 
-  return watchedState;
-};
+  return watchedState
+}
