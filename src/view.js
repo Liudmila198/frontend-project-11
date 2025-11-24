@@ -208,10 +208,13 @@ export const createView = (state, handlers) => {
       }
     })
 
+    // ИСПРАВЛЕНИЕ: удаляем неиспользуемую переменную postId
     elements.modal.element.addEventListener('show.bs.modal', (event) => {
       const button = event.relatedTarget
       if (button && button.classList.contains('preview-btn')) {
-        const postId = button.getAttribute('data-post-id')
+        // Удаляем неиспользуемое присваивание переменной postId
+        button.getAttribute('data-post-id')
+        // Эта строка теперь просто получает атрибут, но не сохраняет в переменную
       }
     })
 
