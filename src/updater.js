@@ -15,8 +15,8 @@ const updateFeed = (feed, existingPosts) => {
         description: post.description,
       }))
     })
-    .catch((error) => {
-      console.warn(`Не удалось обновить фид ${feed.url}:`, error.message)
+    .catch(() => {
+      //console.warn(`Не удалось обновить фид ${feed.url}:`, error.message)
       return []
     })
 }

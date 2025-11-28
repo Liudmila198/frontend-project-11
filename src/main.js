@@ -59,7 +59,9 @@ const app = () => {
       isAutoUpdateStarted = true
     }
   }
-
+const initPH = initPostsHandlers
+  initPH(elements, state)
+  
    const handleFormSubmit = (event) => {
     event.preventDefault()
     
