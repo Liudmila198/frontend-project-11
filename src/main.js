@@ -1,109 +1,144 @@
-import 'bootstrap/dist/css/bootstrap.min.css'
-import 'bootstrap/dist/js/bootstrap.bundle.min.js'
-import './i18n.js'
-import { createView } from './view.js'
-import { createRssSchema, getValidationError } from './validation.js'
-import { loadRssFeed } from './rss.js'
-import i18n from './i18n.js'
+import './style.css'
+import { Modal } from 'bootstrap'
+import { initialState, initState, generateId, updatePosts } from './state.js'
+import { validateForm } from './validator.js'
+import { render, initPostsHandlers } from './view.js'
+import initI18n from './i18n.js'
+import { processRSS } from './parser.js'
+import { updateAllFeeds, FeedUpdater } from './updater.js'
+import i18next from 'i18next'
 
-const createApp = () => {
-  const state = {
-    form: {
-      status: 'filling',
-      errors: {},
-      values: { url: '' },
-      valid: false,
-    },
-    feeds: [],
-    posts: [],
-    ui: {
-      language: 'ru',
-      loading: false,
-    },
-    updater: {
-      status: 'stopped',
-      lastUpdate: null,
-    },
-    readPosts: new Set(),
+const app = () => {
+  initI18n()
+
+  const elements = {
+    form: document.querySelector('.rss-form'),
+    input: document.querySelector('#url-input'),
+    feedback: document.querySelector('.feedback'),
+    submitButton: document.querySelector('button[type="submit"]'),
+    feedsContainer: document.querySelector('.feeds'),
+    postsContainer: document.querySelector('.posts'),
+    modal: document.querySelector('#modal'),
   }
 
-  // Функция для проверки дубликатов по URL
-  const hasFeedWithUrl = (url) => state.feeds.some(feed => feed.url === url)
+  const state = initState(initialState, (path) => {
+    render(elements, state, path)
+  })
 
-  // Функция для нормализации и добавления данных
-  const addFeedData = (feedData) => {
-    const { feed, posts } = feedData
-    
-    // Проверяем, нет ли уже такого фида (на случай параллельных запросов)
-    if (hasFeedWithUrl(feed.url)) {
-      throw new Error('RSS уже существует')
+  let modalInstance = null
+  if (elements.modal) {
+    modalInstance = new Modal(elements.modal, {
+      backdrop: true,
+      focus: true,
+      keyboard: true
+    })
+  }
+
+  const feedUpdater = new FeedUpdater()
+  let isAutoUpdateStarted = false
+
+  const performAutoUpdate = () => {
+    if (state.feeds.length === 0) {
+      return Promise.resolve()
     }
 
-    // Добавляем фид
-    state.feeds.push(feed)
-    
-    // Добавляем посты
-    state.posts.push(...posts)
-    
-    // Сортируем посты по дате публикации (новые сначала)
-    state.posts.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate))
+    return updateAllFeeds(state.feeds, state.posts)
+      .then((newPosts) => {
+        if (newPosts.length > 0) {
+          state.posts = updatePosts(state, newPosts)
+        }
+      })
+      .catch((error) => {
+        console.error('Auto-update error:', error)
+      })
   }
 
-  const handlers = {
-    onFormSubmit: (url) => {
-      const existingUrls = state.feeds.map(feed => feed.url)
-      const schema = createRssSchema(existingUrls)
-      
-      state.form.status = 'validating'
-      state.form.values.url = url
-      state.ui.loading = true
+  const startAutoUpdateIfNeeded = () => {
+    if (!isAutoUpdateStarted && state.feeds.length > 0) {
+      feedUpdater.start(performAutoUpdate)
+      isAutoUpdateStarted = true
+    }
+  }
 
-      // Композиция операций через Promise
-      schema.validate({ url }, { abortEarly: false })
-        .then(() => loadRssFeed(url))
-        .then((feedData) => {
-          addFeedData(feedData)
-          state.form.status = 'valid'
-          state.form.errors = {}
-          state.form.valid = true
-          state.form.values.url = ''
-          showTemporarySuccess(i18n.t('ui.success'))
-        })
-        .catch((error) => {
+   const handleFormSubmit = (event) => {
+    event.preventDefault()
+    
+    const formData = new FormData(event.target)
+    const url = formData.get('url').trim()
+
+    state.form.field.url = url
+    state.form.status = 'validating'
+    state.form.error = null
+
+    const existingUrls = state.feeds.map(feed => feed.url)
+
+    validateForm(url, existingUrls)
+      .then((result) => {
+        if (result.success) {
+          state.form.status = 'sending'
+          
+          return processRSS(url)
+            .then((rssData) => {
+              const feedId = generateId()
+              const newFeed = {
+                id: feedId,
+                url,
+                title: rssData.feed.title,
+                description: rssData.feed.description,
+              }
+
+              const newPosts = rssData.posts.map((post) => ({
+                id: generateId(),
+                feedId,
+                title: post.title,
+                link: post.link,
+                description: post.description,
+              }))
+
+              state.feeds.push(newFeed)
+              state.posts = updatePosts(state, newPosts)
+              
+              state.form.status = 'valid'
+              state.form.field.url = ''
+              elements.input.focus()
+
+              startAutoUpdateIfNeeded()
+            })
+        } else {
           state.form.status = 'invalid'
-          state.form.errors = { url: getValidationError(error) }
-          state.form.valid = false
-        })
-        .finally(() => {
-          state.ui.loading = false
-        });
-    },
-
-    onInputChange: () => {
-      state.form.status = 'filling'
-      state.form.errors = {}
-    },
-
-    onChangeLanguage: (language) => {
-      state.ui.language = language
-    },
+          state.form.error = result.error
+        }
+      })
+      .catch((error) => {
+        state.form.status = 'invalid'
+        if (error.message === 'network_error') {
+          state.form.error = i18next.t('errors.networkError') 
+        } else if (error.message === 'invalid_rss') { 
+          state.form.error = i18next.t('errors.invalidRss') 
+        } else {
+          state.form.error = i18next.t('errors.networkError')
+        }
+      })
   }
 
-  const showTemporarySuccess = (message) => {
-    const feedback = document.querySelector('.feedback')
-    feedback.textContent = message
-    feedback.classList.add('text-success')
-    feedback.classList.remove('text-danger')
-    
-    setTimeout(() => {
-      feedback.textContent = ''
-      feedback.classList.remove('text-success')
-    }, 5000)
+  const handleInputChange = (event) => {
+    if (state.form.status === 'invalid') { 
+      state.form.status = 'filling' 
+      state.form.error = null
+    }
+    state.form.field.url = event.target.value 
   }
+  elements.form.addEventListener('submit', handleFormSubmit)
+  elements.input.addEventListener('input', handleInputChange)
 
-  return createView(state, handlers)
+  render(elements, state)
+
+  return () => {
+    feedUpdater.stop()
+    if (modalInstance) {
+      modalInstance.dispose()
+    }
+  }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  createApp()
-})
+export default app

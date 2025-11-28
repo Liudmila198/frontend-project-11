@@ -1,39 +1,49 @@
 import * as yup from 'yup'
-import i18n from './i18n.js'
+import i18next from 'i18next'
+import { processRSS } from './parser.js'
 
 yup.setLocale({
-  mixed: {
-    required: () => i18n.t('errors.required'),
-    notOneOf: () => i18n.t('errors.notOneOf'),
-  },
   string: {
-    url: () => i18n.t('errors.url'),
+    url: () => ({ key: 'errors.invalidUrl' }),
+    required: () => ({ key: 'errors.required' }),
+  },
+  mixed: {
+    notOneOf: () => ({ key: 'errors.alreadyExists' }),
   },
 })
 
-export const createRssSchema = (existingUrls = []) => {
-  return yup.object().shape({
-    url: yup
-      .string()
-      .required()
-      .url()
-      .notOneOf(existingUrls),
-  })
-}
+export const createSchema = (existingUrls) => yup.object({
+  url: yup
+    .string()
+    .required()
+    .url()
+    .notOneOf(existingUrls),
+})
 
-export const getValidationError = (error) => {
-  if (error instanceof yup.ValidationError) {
-    return error.message
-  }
+export const validateForm = (url, existingUrls) => {
+  const schema = createSchema(existingUrls)
   
-  // Обработка ошибок сети и парсинга
-  if (error.message === 'network_error') {
-    return i18n.t('errors.network')
-  }
-  
-  if (error.message === 'invalid_rss') {
-    return i18n.t('errors.invalidRss')
-  }
-  
-  return i18n.t('errors.unknown')
+  return schema.validate({ url }, { abortEarly: false })
+    .then(() => processRSS(url))
+    .then(() => ({ success: true }))
+    .catch((error) => {
+      let errorKey = 'errors.invalidUrl'
+      
+      if (error.name === 'ValidationError') {
+        if (error.params && error.params.key) {
+          errorKey = error.params.key
+        } else if (error.errors && error.errors[0] && error.errors[0].key) {
+          errorKey = error.errors[0].key
+        }
+      } else if (error.message === 'network_error') {
+        errorKey = 'errors.networkError'
+      } else if (error.message === 'invalid_rss') {
+        errorKey = 'errors.invalidRss'
+      }
+      
+      return { 
+        success: false, 
+        error: i18next.t(errorKey)
+      }
+    })
 }

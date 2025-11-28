@@ -1,22 +1,20 @@
-import i18n from 'i18next'
+import i18next from 'i18next'
 import ruTranslation from './locales/ru/translation.json'
-import enTranslation from './locales/en/translation.json'
 
-i18n.init({
-  resources: {
-    ru: {
-      translation: ruTranslation,
+const initI18n = () => {
+  return i18next.init({
+    lng: 'ru',
+    debug: false,
+    resources: {
+      ru: {
+        translation: ruTranslation,
+      },
     },
-    en: {
-      translation: enTranslation,
+    fallbackLng: 'ru',
+    interpolation: {
+      escapeValue: false,
     },
-  },
-  lng: 'ru', 
-  fallbackLng: 'ru',
-  debug: false,
-  interpolation: {
-    escapeValue: false,
-  },
-})
+  })
+}
 
-export default i18n
+export default initI18n

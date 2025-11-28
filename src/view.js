@@ -1,271 +1,207 @@
-import onChange from 'on-change'
-import i18n from './i18n.js'
+import i18next from 'i18next'
 
-export const createView = (state, handlers) => {
-  const elements = {
-    form: document.querySelector('.rss-form'),
-    input: document.querySelector('#url-input'),
-    feedback: document.querySelector('.feedback'),
-    submitButton: document.querySelector('button[type="submit"]'),
-    feedsContainer: document.querySelector('.feeds'),
-    postsContainer: document.querySelector('.posts'),
-    modal: {
-      element: document.getElementById('modal'),
-      title: document.querySelector('.modal-title'),
-      body: document.querySelector('.modal-body'),
-      fullArticle: document.querySelector('.full-article'),
-      close: document.querySelector('.modal-footer .btn-secondary'),
-    },
+const renderForm = (elements, state) => {
+  const { form } = state
+  const { input, feedback, submitButton } = elements
+
+  input.value = form.field.url
+  submitButton.disabled = form.status === 'validating'
+
+  switch (form.status) {
+    case 'validating':
+      input.classList.remove('is-invalid')
+      feedback.textContent = i18next.t('status.validating')
+      feedback.classList.remove('text-danger')
+      feedback.classList.add('text-warning')
+      break
+
+    case 'invalid':
+      input.classList.add('is-invalid')
+      feedback.textContent = form.error
+      feedback.classList.remove('text-warning')
+      feedback.classList.add('text-danger')
+      break
+
+    case 'valid':
+      input.classList.remove('is-invalid')
+      feedback.textContent = i18next.t('status.success')
+      feedback.classList.remove('text-danger', 'text-warning')
+      feedback.classList.add('text-success')
+      setTimeout(() => {
+        feedback.textContent = ''
+      }, 3000)
+      break
+
+    case 'filling':
+    default:
+      input.classList.remove('is-invalid')
+      feedback.textContent = ''
+      break
+  }
+}
+
+const renderFeeds = (elements, state) => {
+  const { feedsContainer } = elements
+  const { feeds } = state
+
+  if (feeds.length === 0) {
+    feedsContainer.innerHTML = ''
+    return
   }
 
-  const renderForm = () => {
-    const { form, ui } = state
-    
-    elements.input.value = form.values.url
+  const feedsHTML = `
+    <div class="card">
+      <div class="card-body">
+        <h2 class="card-title h4">${i18next.t('ui.feeds')}</h2>
+        <ul class="list-group list-group-flush">
+          ${feeds.map(feed => `
+            <li class="list-group-item">
+              <h3 class="h6">${feed.title}</h3>
+              <p class="m-0 small text-muted">${feed.description}</p>
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+    </div>
+  `
 
-    if (form.status === 'invalid') {
-      elements.input.classList.add('is-invalid')
-      elements.feedback.classList.add('text-danger')
-      elements.feedback.textContent = form.errors.url || ''
-    } else {
-      elements.input.classList.remove('is-invalid')
-      elements.feedback.classList.remove('text-danger')
-      elements.feedback.textContent = ''
-    }
+  feedsContainer.innerHTML = feedsHTML
+}
 
-    elements.submitButton.disabled = form.status === 'validating' || ui.loading
-    elements.input.disabled = ui.loading
-    
-    if (form.status === 'validating' || ui.loading) {
-      elements.submitButton.innerHTML = `
-        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-        ${i18n.t('ui.adding')}
-      `
-    } else {
-      elements.submitButton.textContent = i18n.t('ui.add')
-      elements.submitButton.innerHTML = i18n.t('ui.add')
-    }
+const renderPosts = (elements, state) => {
+  const { postsContainer } = elements
+  const { posts, ui } = state
 
-    if (form.status === 'valid') {
-      elements.input.focus()
-      elements.input.value = ''
-    }
+  if (posts.length === 0) {
+    postsContainer.innerHTML = ''
+    return
   }
 
-  const renderFeeds = () => {
-    const { feeds } = state
-    
-    elements.feedsContainer.innerHTML = ''
-
-    if (feeds.length === 0) {
-      elements.feedsContainer.innerHTML = `
-        <div class="card">
-          <div class="card-body text-center text-muted">
-            <p class="mb-0">${i18n.t('ui.feeds')} (0)</p>
-          </div>
-        </div>
-      `
-      return
-    }
-
-    const feedsTitle = document.createElement('h2')
-    feedsTitle.className = 'h4 mb-3'
-    feedsTitle.textContent = `${i18n.t('titles.feeds')} (${feeds.length})`
-
-    const feedsList = document.createElement('div')
-    feedsList.className = 'row'
-
-    feeds.forEach((feed) => {
-      const feedElement = document.createElement('div')
-      feedElement.className = 'col-12 mb-3'
-      feedElement.innerHTML = `
-        <div class="card h-100">
-          <div class="card-body">
-            <h5 class="card-title">${feed.title}</h5>
-            <p class="card-text">${feed.description}</p>
-            <small class="text-muted">${feed.url}</small>
-          </div>
-        </div>
-      `
-      feedsList.appendChild(feedElement)
-    })
-
-    elements.feedsContainer.appendChild(feedsTitle)
-    elements.feedsContainer.appendChild(feedsList)
-  }
-
-  const renderPosts = () => {
-    const { posts, readPosts } = state
-    
-    elements.postsContainer.innerHTML = ''
-
-    if (posts.length === 0) {
-      elements.postsContainer.innerHTML = `
-        <div class="card">
-          <div class="card-body text-center text-muted">
-            <p class="mb-0">${i18n.t('ui.posts')} (0)</p>
-          </div>
-        </div>
-      `
-      return
-    }
-
-    const unreadCount = posts.filter(post => !readPosts.has(post.id)).length
-
-    const postsTitle = document.createElement('h2')
-    postsTitle.className = 'h4 mb-3'
-    postsTitle.textContent = `${i18n.t('titles.posts')} (${posts.length}, новых: ${unreadCount})`
-
-    const postsList = document.createElement('div')
-    postsList.className = 'row'
-
-    posts.forEach((post) => {
-      const isRead = readPosts.has(post.id)
-      
-      const titleClass = isRead ? 'fw-normal' : 'fw-bold'
-      const cardBorderClass = isRead ? 'border-light' : 'border-primary'
-      const badge = isRead ? '' : '<span class="badge bg-primary ms-2">NEW</span>'
-      
-      const postDate = post.pubDate ? new Date(post.pubDate).toLocaleDateString('ru-RU', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      }) : 'Дата не указана'
-
-      const postElement = document.createElement('div')
-      postElement.className = `col-12 mb-3 ${isRead ? '' : 'highlight-new'}`
-      postElement.innerHTML = `
-        <div class="card h-100 ${cardBorderClass}" data-post-id="${post.id}">
-          <div class="card-body d-flex flex-column">
-            <h5 class="card-title ${titleClass}">
-              ${post.title}
-              ${badge}
-            </h5>
-            <p class="card-text flex-grow-1">${post.description}</p>
-            <div class="d-flex justify-content-between align-items-center mt-2">
-              <small class="text-muted">${postDate}</small>
-              <div class="btn-group" role="group">
-                <a href="${post.link}" 
-                   class="btn btn-outline-primary btn-sm read-full"
-                   target="_blank" 
-                   rel="noopener noreferrer"
-                   data-post-id="${post.id}">
-                  ${i18n.t('ui.read')}
+  const postsHTML = `
+    <div class="card">
+      <div class="card-body">
+        <h2 class="card-title h4">${i18next.t('ui.posts')}</h2>
+        <ul class="list-group list-group-flush">
+          ${posts.map(post => {
+            const isVisited = ui.visitedPosts.has(post.id)
+            const fontWeightClass = isVisited ? 'fw-normal' : 'fw-bold'
+            
+            return `
+            <li class="list-group-item d-flex justify-content-between align-items-start">
+              <div>
+                <a 
+                  href="${post.link}" 
+                  class="${fontWeightClass}" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  data-id="${post.id}"
+                >
+                  ${post.title}
                 </a>
-                <button class="btn btn-outline-secondary btn-sm preview-btn" 
-                        data-bs-toggle="modal" 
-                        data-bs-target="#modal"
-                        data-post-id="${post.id}">
-                  ${i18n.t('ui.view')}
-                </button>
+                <p class="mb-0 mt-1 small text-muted">${post.description}</p>
               </div>
-            </div>
-          </div>
-        </div>
-      `
-      postsList.appendChild(postElement)
-    })
+              <button 
+                type="button" 
+                class="btn btn-outline-primary btn-sm" 
+                data-id="${post.id}"
+                data-bs-toggle="modal" 
+                data-bs-target="#modal"
+              >
+                ${i18next.t('ui.view')}
+              </button>
+            </li>
+          `}).join('')}
+        </ul>
+      </div>
+    </div>
+  `
 
-    elements.postsContainer.appendChild(postsTitle)
-    elements.postsContainer.appendChild(postsList)
+  postsContainer.innerHTML = postsHTML
+}
+
+const updateModal = (elements, state) => {
+  const { modal } = elements
+  const modalTitle = modal.querySelector('.modal-title')
+  const modalBody = modal.querySelector('.modal-body')
+  const fullArticleLink = modal.querySelector('.full-article')
+  const closeButton = modal.querySelector('.btn-secondary')
+
+  if (state.ui.modal) {
+    const post = state.posts.find(p => p.id === state.ui.modal)
+    if (post) {
+      modalTitle.textContent = post.title
+      modalBody.innerHTML = post.description
+      fullArticleLink.href = post.link
+      fullArticleLink.textContent = i18next.t('ui.readMore')
+      closeButton.textContent = i18next.t('ui.close')
+    }
   }
+}
 
-  const setupModal = () => {
-    elements.modal.fullArticle.textContent = i18n.t('ui.read')
-    elements.modal.close.textContent = i18n.t('ui.close')
+const markPostAsVisited = (state, postId) => {
+  state.ui.visitedPosts.add(postId)
+}
 
-    document.addEventListener('click', (event) => {
-      const previewBtn = event.target.closest('.preview-btn')
-      const readFullBtn = event.target.closest('.read-full')
-      
-      if (previewBtn) {
-        const postId = previewBtn.getAttribute('data-post-id')
-        const post = state.posts.find(p => p.id === postId)
-        
-        if (post) {
-          elements.modal.title.textContent = post.title
-          elements.modal.body.textContent = post.description
-          elements.modal.fullArticle.href = post.link
-          elements.modal.fullArticle.setAttribute('data-post-id', postId)
-          
-          handlers.onPostRead(postId)
-          handlers.onModalOpen(postId)
-        }
-      }
-      
-      if (readFullBtn && readFullBtn.getAttribute('data-post-id')) {
-        const postId = readFullBtn.getAttribute('data-post-id')
-        handlers.onPostRead(postId)
-      }
-    })
+const initPostsHandlers = (elements, state) => {
+  const { postsContainer, modal } = elements
 
-    elements.modal.fullArticle.addEventListener('click', (event) => {
-      const postId = event.target.getAttribute('data-post-id')
-      if (postId) {
-        handlers.onPostRead(postId)
-      }
-    })
-
-    // ИСПРАВЛЕНИЕ: удаляем неиспользуемую переменную postId
-    elements.modal.element.addEventListener('show.bs.modal', (event) => {
-      const button = event.relatedTarget
-      if (button && button.classList.contains('preview-btn')) {
-        // Удаляем неиспользуемое присваивание переменной postId
-        button.getAttribute('data-post-id')
-        // Эта строка теперь просто получает атрибут, но не сохраняет в переменную
-      }
-    })
-
-    elements.modal.element.addEventListener('hidden.bs.modal', () => {
-      handlers.onModalClose()
-    })
-  }
-
-  const watchedState = onChange(state, (path, value) => {
-    if (path.startsWith('form') || path === 'ui.loading') {
-      renderForm()
-    }
+  postsContainer.addEventListener('click', (e) => {
+    const target = e.target
     
-    if (path === 'feeds') {
-      renderFeeds()
+    const postLink = target.closest('a[data-id]')
+    if (postLink) {
+      const postId = parseInt(postLink.dataset.id, 10)
+      markPostAsVisited(state, postId)
     }
-    
-    if (path === 'posts' || path === 'readPosts') {
-      renderPosts()
+
+    const previewBtn = target.closest('button[data-id]')
+    if (previewBtn) {
+      e.preventDefault()
+      const postId = parseInt(previewBtn.dataset.id, 10)
+      markPostAsVisited(state, postId)
+      state.ui.modal = postId
     }
-    
-    if (path === 'ui.language') {
-      i18n.changeLanguage(value).then(() => {
-        renderForm()
-        renderFeeds()
-        renderPosts()
-        setupModal()
-      })
+
+    const externalLink = target.closest('a[target="_blank"]')
+    if (externalLink && externalLink.dataset.id) {
+      const postId = parseInt(externalLink.dataset.id, 10)
+      markPostAsVisited(state, postId)
     }
   })
 
-  const initEventListeners = () => {
-    elements.form.addEventListener('submit', (e) => {
-      e.preventDefault()
-      const formData = new FormData(elements.form)
-      const url = formData.get('url').trim()
-      handlers.onFormSubmit(url)
-    })
-
-    elements.input.addEventListener('input', () => {
-      if (state.form.status === 'invalid') {
-        handlers.onInputChange()
-      }
-    })
-  }
-
-  initEventListeners()
-  setupModal()
-  renderForm()
-  renderFeeds()
-  renderPosts()
-
-  return watchedState
+  modal.addEventListener('hidden.bs.modal', () => {
+    state.ui.modal = null
+  })
 }
+
+export const render = (elements, state, path) => {
+  switch (path) {
+    case 'form':
+    case 'form.status':
+    case 'form.error':
+    case 'form.field.url':
+      renderForm(elements, state)
+      break
+
+    case 'feeds':
+      renderFeeds(elements, state)
+      break
+
+    case 'posts':
+    case 'ui.visitedPosts':
+      renderPosts(elements, state)
+      break
+
+    case 'ui.modal':
+      updateModal(elements, state)
+      break
+
+    default:
+      renderForm(elements, state)
+      renderFeeds(elements, state)
+      renderPosts(elements, state)
+      break
+  }
+}
+
+export { initPostsHandlers, markPostAsVisited }

@@ -1,52 +1,46 @@
-const createState = () => {
-  return {
-    // Статус приложения
-    status: 'idle', // idle, loading, success, error
-    
-    // Данные формы
-    form: {
+import onChange from 'on-change'
+
+let idCounter = 0
+export const generateId = () => {
+  idCounter += 1
+  return idCounter
+}
+
+export const initialState = {
+  feeds: [],
+  posts: [],
+  form: {
+    status: 'filling',
+    error: null,
+    field: {
       url: '',
-      error: null,
-      valid: true,
     },
-    
-    // Коллекции данных
-    feeds: [],
-    posts: [],
-    
-    // UI состояние
-    ui: {
-      visitedUrls: new Set(),
-      modal: {
-        isOpen: false,
-        postId: null,
-      },
-    },
+  },
+  ui: {
+    feedback: '',
+    modal: null,
+    visitedPosts: new Set(),
+  },
+  loading: {
+    process: 'idle',
+    error: null,
+  },
+  updates: {
+    lastUpdate: null,
+    newPostsCount: 0,
+  },
+}
+
+export const updatePosts = (state, newPosts) => {
+  const existingLinks = new Set(state.posts.map(post => post.link))
+  const uniqueNewPosts = newPosts.filter(post => !existingLinks.has(post.link))
+  
+  if (uniqueNewPosts.length > 0) {
+    state.updates.newPostsCount = uniqueNewPosts.length
+    state.updates.lastUpdate = new Date().toISOString()
   }
+  
+  return [...state.posts, ...uniqueNewPosts]
 }
 
-// Геттер для получения всех URL фидов
-const getFeedUrls = (state) => {
-  return state.feeds.map(feed => feed.url)
-}
-
-// Обновление состояния формы
-const updateFormState = (state, updates) => {
-  state.form = { ...state.form, ...updates }
-}
-
-// Добавление фида
-const addFeed = (state, feed) => {
-  state.feeds.push(feed);
-  state.ui.visitedUrls.add(feed.url)
-}
-
-// Сброс формы
-const resetForm = (state) => {
-  state.form.url = ''
-  state.form.error = null
-  state.form.valid = true
-  state.status = 'idle'
-}
-
-export { createState, getFeedUrls, updateFormState, addFeed, resetForm }
+export const initState = (state, callback) => onChange(state, callback)
