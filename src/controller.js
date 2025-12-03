@@ -63,7 +63,8 @@ const loadRSS = (url) => {
       }
       if (error.message === 'Network Error') {
         error.type = 'network'
-      } else if (!error.type) {
+      } 
+      else if (!error.type) {
         error.type = 'network'
       }
       throw error
@@ -108,7 +109,8 @@ export const createController = (state, view, elements) => {
       .catch((error) => {
         if (error.name === 'ValidationError') {
           stateHelpers.setError(state, error.errors[0])
-        } else {
+        } 
+        else {
           stateHelpers.setError(state, error)
         }
         view.render(state)
