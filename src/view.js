@@ -68,7 +68,7 @@ export const createView = (elements) => {
           <h2 class="card-title h4">${i18next.t('ui.feeds')}</h2>
         </div>
         <ul class="list-group border-0 rounded-0">
-          ${feeds.map((feed) => `
+          ${feeds.map(feed => `
             <li class="list-group-item border-0 border-end-0">
               <h3 class="h6 m-0">${escapeHtml(feed.title)}</h3>
               <p class="m-0 small text-black-50">${escapeHtml(feed.description)}</p>
@@ -95,9 +95,9 @@ export const createView = (elements) => {
           <h2 class="card-title h4">${i18next.t('ui.posts')}</h2>
         </div>
         <ul class="list-group border-0 rounded-0">
-          ${posts.map((post) => {
-    const isViewed = viewedPosts.has(post.id)
-    return `
+          ${posts.map(post => {
+            const isViewed = viewedPosts.has(post.id)
+            return `
               <li class="list-group-item d-flex justify-content-between align-items-start border-0 border-end-0">
                 <a 
                   href="${escapeHtml(post.link)}" 
@@ -119,7 +119,7 @@ export const createView = (elements) => {
                 </button>
               </li>
             `
-  }).join('')}
+          }).join('')}
         </ul>
       </div>
     `

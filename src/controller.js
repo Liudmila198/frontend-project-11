@@ -3,7 +3,7 @@ import * as yup from 'yup'
 import i18next from 'i18next'
 import { stateHelpers } from './state.js'
 
-const createValidationSchema = (existingUrls) => yup.object().shape({
+const createValidationSchema = existingUrls => yup.object().shape({
   url: yup
     .string()
     .required(i18next.t('errors.required'))
@@ -15,6 +15,7 @@ const parseRSS = (xmlString) => {
   const parser = new DOMParser()
   const xmlDoc = parser.parseFromString(xmlString, 'text/xml')
 
+  // Исправлено: 'parsererror' вместо 'parseError'
   const parseError = xmlDoc.querySelector('parsererror')
   if (parseError) {
     const error = new Error('Invalid RSS')
@@ -23,13 +24,14 @@ const parseRSS = (xmlString) => {
   }
 
   const channel = xmlDoc.querySelector('channel')
+  // Исправлено: добавлен textContent?.trim()
   const feed = {
     title: channel.querySelector('title')?.textContent?.trim() || 'Без названия',
     description: channel.querySelector('description')?.textContent?.trim() || '',
   }
 
   const items = xmlDoc.querySelectorAll('item')
-  const posts = Array.from(items).map((item) => ({
+  const posts = Array.from(items).map(item => ({
     title: item.querySelector('title')?.textContent?.trim() || 'Без названия',
     description: item.querySelector('description')?.textContent?.trim() || '',
     link: item.querySelector('link')?.textContent?.trim() || '',
@@ -128,7 +130,7 @@ export const createController = (state, view, elements) => {
     const button = e.target.closest('button[data-post-id]')
     if (button) {
       const postId = button.dataset.postId
-      const post = state.posts.find((p) => p.id === postId)
+      const post = state.posts.find(p => p.id === postId)
       if (post) {
         stateHelpers.markPostAsViewed(state, postId)
         view.showPostModal(post)
@@ -140,15 +142,14 @@ export const createController = (state, view, elements) => {
   const updateFeeds = () => {
     if (state.ui.loading || state.feeds.length === 0) return
 
-    const updatePromises = state.feeds.map((feed) =>
+    const updatePromises = state.feeds.map(feed =>
       loadRSS(feed.url)
         .then(({ posts }) => {
           stateHelpers.addPosts(state, posts, feed.id)
         })
         .catch((error) => {
           console.error(`Failed to update feed ${feed.url}:`, error)
-        })
-    )
+        }))
 
     Promise.all(updatePromises)
       .then(() => {

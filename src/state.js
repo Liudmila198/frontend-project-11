@@ -39,14 +39,14 @@ export const stateHelpers = {
   },
 
   addPosts(state, postsData, feedId) {
-    const newPosts = postsData.map((post) => ({
+    const newPosts = postsData.map(post => ({
       ...post,
       id: `${Date.now()}-${Math.random()}`,
       feedId,
     }))
 
-    const existingLinks = new Set(state.posts.map((p) => p.link))
-    const uniquePosts = newPosts.filter((post) => !existingLinks.has(post.link))
+    const existingLinks = new Set(state.posts.map(p => p.link))
+    const uniquePosts = newPosts.filter(post => !existingLinks.has(post.link))
 
     state.posts.unshift(...uniquePosts)
     return uniquePosts
