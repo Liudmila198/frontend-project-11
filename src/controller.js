@@ -3,15 +3,13 @@ import * as yup from 'yup'
 import i18next from 'i18next'
 import { stateHelpers } from './state.js'
 
-const createValidationSchema = (existingUrls) => {
-  return yup.object().shape({
-    url: yup
-      .string()
-      .required(i18next.t('errors.required'))
-      .url(i18next.t('errors.url'))
-      .notOneOf(existingUrls, i18next.t('errors.notOneOf')),
-  })
-}
+const createValidationSchema = (existingUrls) => yup.object().shape({
+  url: yup
+    .string()
+    .required(i18next.t('errors.required'))
+    .url(i18next.t('errors.url'))
+    .notOneOf(existingUrls, i18next.t('errors.notOneOf')),
+})
 
 const parseRSS = (xmlString) => {
   const parser = new DOMParser()

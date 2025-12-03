@@ -81,7 +81,6 @@ export const createView = (elements) => {
     feedsContainer.innerHTML = feedsHtml
   }
 
-  // КРИТИЧЕСКОЕ ИЗМЕНЕНИЕ: структура постов должна соответствовать тестам
   const renderPosts = (posts, viewedPosts) => {
     const { postsContainer } = elements
 
@@ -97,8 +96,8 @@ export const createView = (elements) => {
         </div>
         <ul class="list-group border-0 rounded-0">
           ${posts.map((post) => {
-            const isViewed = viewedPosts.has(post.id)
-            return `
+    const isViewed = viewedPosts.has(post.id)
+    return `
               <li class="list-group-item d-flex justify-content-between align-items-start border-0 border-end-0">
                 <a 
                   href="${escapeHtml(post.link)}" 
@@ -120,7 +119,7 @@ export const createView = (elements) => {
                 </button>
               </li>
             `
-          }).join('')}
+  }).join('')}
         </ul>
       </div>
     `
