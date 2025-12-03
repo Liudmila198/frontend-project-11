@@ -1,207 +1,171 @@
 import i18next from 'i18next'
 
-const renderForm = (elements, state) => {
-  const { form } = state
-  const { input, feedback, submitButton } = elements
-
-  input.value = form.field.url
-  submitButton.disabled = form.status === 'validating'
-
-  switch (form.status) {
-    case 'validating':
-      input.classList.remove('is-invalid')
-      feedback.textContent = i18next.t('status.validating')
-      feedback.classList.remove('text-danger')
-      feedback.classList.add('text-warning')
-      break
-
-    case 'invalid':
-      input.classList.add('is-invalid')
-      feedback.textContent = form.error
-      feedback.classList.remove('text-warning')
-      feedback.classList.add('text-danger')
-      break
-
-    case 'valid':
-      input.classList.remove('is-invalid')
-      feedback.textContent = i18next.t('status.success')
-      feedback.classList.remove('text-danger', 'text-warning')
-      feedback.classList.add('text-success')
-      setTimeout(() => {
-        feedback.textContent = ''
-      }, 3000)
-      break
-
-    case 'filling':
-    default:
-      input.classList.remove('is-invalid')
-      feedback.textContent = ''
-      break
+// Создание представления
+export const createView = (elements) => {
+  // Вспомогательные функции
+  const escapeHtml = (text) => {
+    const div = document.createElement('div')
+    div.textContent = text
+    return div.innerHTML
   }
-}
-
-const renderFeeds = (elements, state) => {
-  const { feedsContainer } = elements
-  const { feeds } = state
-
-  if (feeds.length === 0) {
-    feedsContainer.innerHTML = ''
-    return
+  
+  // Обновление состояния формы
+  const updateFormState = (state) => {
+    const { form, ui } = state
+    const { urlInput, feedback } = elements
+    const submitButton = elements.form.querySelector('button[type="submit"]')
+    
+    // Сброс классов
+    urlInput.classList.remove('is-invalid', 'is-valid')
+    feedback.classList.remove('text-danger', 'text-success')
+    feedback.textContent = ''
+    
+    switch (form.status) {
+      case 'validating':
+        submitButton.disabled = true
+        break
+        
+      case 'sending':
+        submitButton.disabled = true
+        urlInput.readOnly = true
+        break
+        
+      case 'success':
+        submitButton.disabled = false
+        urlInput.readOnly = false
+        urlInput.value = ''
+        urlInput.classList.add('is-valid')
+        feedback.classList.add('text-success')
+        feedback.textContent = i18next.t('success.loaded')
+        urlInput.focus()
+        break
+        
+      case 'error':
+        submitButton.disabled = false
+        urlInput.readOnly = false
+        urlInput.classList.add('is-invalid')
+        feedback.classList.add('text-danger')
+        if (form.error) {
+          const errorKey = typeof form.error === 'string' ? form.error : form.error.type || 'unknown'
+          feedback.textContent = i18next.t(`errors.${errorKey}`)
+        }
+        break
+        
+      default: // filling
+        submitButton.disabled = false
+        urlInput.readOnly = false
+    }
   }
-
-  const feedsHTML = `
-    <div class="card">
-      <div class="card-body">
-        <h2 class="card-title h4">${i18next.t('ui.feeds')}</h2>
-        <ul class="list-group list-group-flush">
-          ${feeds.map(feed => `
-            <li class="list-group-item">
-              <h3 class="h6">${feed.title}</h3>
-              <p class="m-0 small text-muted">${feed.description}</p>
-            </li>
-          `).join('')}
-        </ul>
+  
+  // Рендеринг фидов
+  const renderFeeds = (feeds) => {
+    const { feedsContainer } = elements
+    
+    if (feeds.length === 0) {
+      feedsContainer.innerHTML = `
+        <div class="card">
+          <div class="card-body text-center text-muted">
+            <p class="mb-0">${i18next.t('ui.noFeeds')}</p>
+          </div>
+        </div>
+      `
+      return
+    }
+    
+    const feedsHtml = feeds.map((feed) => `
+      <div class="card mb-3 fade-in">
+        <div class="card-body">
+          <h3 class="card-title h5">${escapeHtml(feed.title)}</h3>
+          <p class="card-text text-muted small">${escapeHtml(feed.description)}</p>
+          <p class="card-text">
+            <small class="text-muted">Добавлен: ${new Date(feed.id).toLocaleDateString()}</small>
+          </p>
+        </div>
       </div>
-    </div>
-  `
-
-  feedsContainer.innerHTML = feedsHTML
-}
-
-const renderPosts = (elements, state) => {
-  const { postsContainer } = elements
-  const { posts, ui } = state
-
-  if (posts.length === 0) {
-    postsContainer.innerHTML = ''
-    return
+    `).join('')
+    
+    feedsContainer.innerHTML = `
+      <h2 class="h4 mb-3">${i18next.t('ui.feeds')}</h2>
+      ${feedsHtml}
+    `
   }
-
-  const postsHTML = `
-    <div class="card">
-      <div class="card-body">
-        <h2 class="card-title h4">${i18next.t('ui.posts')}</h2>
-        <ul class="list-group list-group-flush">
-          ${posts.map(post => {
-            const isVisited = ui.visitedPosts.has(post.id)
-            const fontWeightClass = isVisited ? 'fw-normal' : 'fw-bold'
-            
-            return `
-            <li class="list-group-item d-flex justify-content-between align-items-start">
-              <div>
+  
+  // Рендеринг постов
+  const renderPosts = (posts, viewedPosts) => {
+    const { postsContainer } = elements
+    
+    if (posts.length === 0) {
+      postsContainer.innerHTML = `
+        <div class="card">
+          <div class="card-body text-center text-muted">
+            <p class="mb-0">${i18next.t('ui.noPosts')}</p>
+          </div>
+        </div>
+      `
+      return
+    }
+    
+    const postsHtml = posts.map((post) => {
+      const isViewed = viewedPosts.has(post.id)
+      return `
+        <div class="card mb-3 fade-in">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+              <div class="flex-grow-1">
                 <a 
-                  href="${post.link}" 
-                  class="${fontWeightClass}" 
+                  href="${escapeHtml(post.link)}" 
+                  class="${isViewed ? 'fw-normal' : 'fw-bold'}" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  data-id="${post.id}"
+                  data-post-id="${post.id}"
                 >
-                  ${post.title}
+                  ${escapeHtml(post.title)}
                 </a>
-                <p class="mb-0 mt-1 small text-muted">${post.description}</p>
+                ${post.pubDate ? `
+                  <div class="text-muted small mt-1">
+                    ${new Date(post.pubDate).toLocaleDateString()}
+                  </div>
+                ` : ''}
               </div>
               <button 
                 type="button" 
-                class="btn btn-outline-primary btn-sm" 
-                data-id="${post.id}"
+                class="btn btn-outline-primary btn-sm ms-3" 
+                data-post-id="${post.id}"
                 data-bs-toggle="modal" 
                 data-bs-target="#modal"
               >
-                ${i18next.t('ui.view')}
+                ${i18next.t('ui.preview')}
               </button>
-            </li>
-          `}).join('')}
-        </ul>
-      </div>
-    </div>
-  `
-
-  postsContainer.innerHTML = postsHTML
-}
-
-const updateModal = (elements, state) => {
-  const { modal } = elements
-  const modalTitle = modal.querySelector('.modal-title')
-  const modalBody = modal.querySelector('.modal-body')
-  const fullArticleLink = modal.querySelector('.full-article')
-  const closeButton = modal.querySelector('.btn-secondary')
-
-  if (state.ui.modal) {
-    const post = state.posts.find(p => p.id === state.ui.modal)
-    if (post) {
-      modalTitle.textContent = post.title
-      modalBody.innerHTML = post.description
-      fullArticleLink.href = post.link
-      fullArticleLink.textContent = i18next.t('ui.readMore')
-      closeButton.textContent = i18next.t('ui.close')
-    }
-  }
-}
-
-const markPostAsVisited = (state, postId) => {
-  state.ui.visitedPosts.add(postId)
-}
-
-const initPostsHandlers = (elements, state) => {
-  const { postsContainer, modal } = elements
-
-  postsContainer.addEventListener('click', (e) => {
-    const target = e.target
+            </div>
+          </div>
+        </div>
+      `
+    }).join('')
     
-    const postLink = target.closest('a[data-id]')
-    if (postLink) {
-      const postId = parseInt(postLink.dataset.id, 10)
-      markPostAsVisited(state, postId)
-    }
-
-    const previewBtn = target.closest('button[data-id]')
-    if (previewBtn) {
-      e.preventDefault()
-      const postId = parseInt(previewBtn.dataset.id, 10)
-      markPostAsVisited(state, postId)
-      state.ui.modal = postId
-    }
-
-    const externalLink = target.closest('a[target="_blank"]')
-    if (externalLink && externalLink.dataset.id) {
-      const postId = parseInt(externalLink.dataset.id, 10)
-      markPostAsVisited(state, postId)
-    }
-  })
-
-  modal.addEventListener('hidden.bs.modal', () => {
-    state.ui.modal = null
-  })
-}
-
-export const render = (elements, state, path) => {
-  switch (path) {
-    case 'form':
-    case 'form.status':
-    case 'form.error':
-    case 'form.field.url':
-      renderForm(elements, state)
-      break
-
-    case 'feeds':
-      renderFeeds(elements, state)
-      break
-
-    case 'posts':
-    case 'ui.visitedPosts':
-      renderPosts(elements, state)
-      break
-
-    case 'ui.modal':
-      updateModal(elements, state)
-      break
-
-    default:
-      renderForm(elements, state)
-      renderFeeds(elements, state)
-      renderPosts(elements, state)
-      break
+    postsContainer.innerHTML = `
+      <h2 class="h4 mb-3">${i18next.t('ui.posts')}</h2>
+      ${postsHtml}
+    `
+  }
+  
+  // Показать модальное окно с постом
+  const showPostModal = (post) => {
+    const { modal } = elements
+    modal.title.textContent = post.title
+    modal.body.textContent = post.description || 'Нет описания'
+    modal.link.href = post.link
+  }
+  
+  // Основной рендеринг
+  const render = (state) => {
+    updateFormState(state)
+    renderFeeds(state.feeds)
+    renderPosts(state.posts, state.viewedPosts)
+  }
+  
+  return {
+    render,
+    showPostModal,
+    escapeHtml,
   }
 }
-
-export { initPostsHandlers, markPostAsVisited }
