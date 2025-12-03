@@ -1,7 +1,6 @@
 import i18next from 'i18next'
 import { createApp } from './app.js'
 
-// Инициализация i18next
 const initI18n = () => {
   return i18next.init({
     lng: 'ru',
@@ -38,20 +37,15 @@ const initI18n = () => {
   })
 }
 
-// Главная функция инициализации
 const initApp = async () => {
   try {
-    // Инициализируем i18next
     await initI18n()
-    
-    // Создаем и запускаем приложение
     const app = createApp()
-    
-    // Для отладки
+
     if (process.env.NODE_ENV !== 'production') {
       window.app = app
     }
-    
+
     return app
   } catch (error) {
     console.error('Failed to initialize application:', error)
