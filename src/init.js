@@ -15,13 +15,14 @@ const initApp = async () => {
     const app = createApp()
 
     if (process.env.NODE_ENV !== 'production') {
-      window.app = app;
+      window.app = app
     }
 
     return app
-  } catch (error) {
+  } catch (error) 
+  {
     console.error('Failed to initialize application:', error)
-    throw error;
+    throw error
   }
 }
 
