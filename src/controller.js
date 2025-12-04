@@ -16,7 +16,6 @@ const parseRSS = (xmlString) => {
   const parser = new DOMParser()
   const xmlDoc = parser.parseFromString(xmlString, 'text/xml')
 
-  // Исправлено: 'parsererror' вместо 'parseError'
   const parseError = xmlDoc.querySelector('parsererror')
   if (parseError) {
     const error = new Error('Invalid RSS')
@@ -25,7 +24,6 @@ const parseRSS = (xmlString) => {
   }
 
   const channel = xmlDoc.querySelector('channel')
-  // Исправлено: добавлен textContent?.trim()
   const feed = {
     title: channel.querySelector('title')?.textContent?.trim() || 'Без названия',
     description: channel.querySelector('description')?.textContent?.trim() || '',
