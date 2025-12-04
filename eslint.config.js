@@ -9,8 +9,7 @@ export default [
       '@stylistic': stylistic,
     },
     rules: {
-      '@stylistic/indent': ['error', 2],
-      '@stylistic/brace-style': ['error', '1tbs'],
+     
     },
     languageOptions: {
       ecmaVersion: 'latest',
