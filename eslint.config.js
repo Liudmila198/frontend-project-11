@@ -9,7 +9,6 @@ export default [
       '@stylistic': stylistic,
     },
     rules: {
-     
     },
     languageOptions: {
       ecmaVersion: 'latest',

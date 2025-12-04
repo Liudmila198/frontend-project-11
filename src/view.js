@@ -96,7 +96,7 @@ export const createView = (elements) => {
           <h2 class="card-title h4">${i18next.t('ui.posts')}</h2>
         </div>
         <ul class="list-group border-0 rounded-0">
-          ${posts.map(post => {
+          ${posts.map((post) => {
             const isViewed = viewedPosts.has(post.id)
             return `
               <li class="list-group-item d-flex justify-content-between align-items-start border-0 border-end-0">

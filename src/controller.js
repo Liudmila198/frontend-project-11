@@ -12,7 +12,7 @@ const createValidationSchema = existingUrls => yup.object().shape({
     .notOneOf(existingUrls, i18next.t('errors.notOneOf')),
 })
 
-const parseRSS = xmlString => {
+const parseRSS = (xmlString) => {
   const parser = new DOMParser()
   const xmlDoc = parser.parseFromString(xmlString, 'text/xml')
 
@@ -42,7 +42,7 @@ const parseRSS = xmlString => {
   return { feed, posts }
 }
 
-const loadRSS = url => {
+const loadRSS = (url) => {
   const proxyUrl = `https://allorigins.hexlet.app/get?disableCache=true&url=${encodeURIComponent(url)}`
 
   return axios
@@ -64,7 +64,7 @@ const loadRSS = url => {
       }
       if (error.message === 'Network Error') {
         error.type = 'network'
-      } 
+      }
       else if (!error.type) {
         error.type = 'network'
       }
@@ -110,7 +110,7 @@ export const createController = (state, view, elements) => {
       .catch((error) => {
         if (error.name === 'ValidationError') {
           stateHelpers.setError(state, error.errors[0])
-        } 
+        }
         else {
           stateHelpers.setError(state, error)
         }

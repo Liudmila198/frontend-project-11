@@ -46,7 +46,7 @@ const initApp = async () => {
     }
 
     return app
-  } 
+  }
   catch (error) {
     console.error('Failed to initialize application:', error)
     throw error
