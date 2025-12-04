@@ -1,3 +1,4 @@
+/* eslint-env browser */
 import i18next from 'i18next'
 
 export const createView = (elements) => {

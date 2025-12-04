@@ -1,3 +1,4 @@
+/* eslint-env node */
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import './style.css'
 import initApp from './init.js'

@@ -1,3 +1,4 @@
+/* eslint-env browser */
 import axios from 'axios'
 import * as yup from 'yup'
 import i18next from 'i18next'

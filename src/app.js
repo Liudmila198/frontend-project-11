@@ -1,3 +1,4 @@
+/* eslint-env browser */
 import { createState } from './state.js'
 import { createView } from './view.js'
 import { createController } from './controller.js'

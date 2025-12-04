@@ -1,3 +1,4 @@
+/* eslint-env node */
 import onChange from 'on-change'
 
 export const createState = () => {
