@@ -8,25 +8,14 @@ export default [
       '@stylistic': stylistic,
     },
     rules: {
-      // ваши правила
+      '@stylistic/indent': ['error', 2], 
+      '@stylistic/brace-style': ['error', '1tbs'],
     },
     languageOptions: {
       globals: {
-        // Браузерные глобальные переменные
-        document: 'readonly',
-        window: 'readonly',
-        DOMParser: 'readonly',
-        setInterval: 'readonly',
-        clearInterval: 'readonly',
-        
-        // Node.js глобальные переменные
-        process: 'readonly',
-        console: 'readonly',
+      ...globals.browser,
+        ...globals.node,
       }
     },
-    env: {
-      browser: true,    // Добавляет все браузерные глобальные переменные
-      node: true,       // Добавляет все Node.js глобальные переменные
-    }
   }
 ];
