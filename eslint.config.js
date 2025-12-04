@@ -16,7 +16,7 @@ export default [
       'no-use-before-define': ['error', { functions: false }],
       '@stylistic/semi': ['error', 'never'],
       '@stylistic/eol-last': ['error', 'always'],
-      '@stylistic/arrow-parens': ['error', 'as-needed'],
+     // '@stylistic/arrow-parens': ['error', 'as-needed'],
       '@stylistic/brace-style': ['error', '1tbs'],
       '@stylistic/comma-dangle': ['error', 'always-multiline'],
       '@stylistic/indent': ['error', 2],

@@ -11,7 +11,7 @@ const createValidationSchema = existingUrls => yup.object().shape({
     .notOneOf(existingUrls, i18next.t('errors.notOneOf')),
 })
 
-const parseRSS = (xmlString) => {
+const parseRSS = xmlString => {
   const parser = new DOMParser()
   const xmlDoc = parser.parseFromString(xmlString, 'text/xml')
 
@@ -41,7 +41,7 @@ const parseRSS = (xmlString) => {
   return { feed, posts }
 }
 
-const loadRSS = (url) => {
+const loadRSS = url => {
   const proxyUrl = `https://allorigins.hexlet.app/get?disableCache=true&url=${encodeURIComponent(url)}`
 
   return axios
