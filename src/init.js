@@ -6,7 +6,7 @@ import resources from './locales/index.js'
 const initI18n = () => i18next.init({
   lng: 'ru',
   debug: false,
-  resources
+  resources,
 })
 
 const initApp = async () => {
@@ -19,7 +19,7 @@ const initApp = async () => {
     }
 
     return app
-  } 
+  }
   catch (error) {
     console.error('Failed to initialize application:', error)
     throw error
