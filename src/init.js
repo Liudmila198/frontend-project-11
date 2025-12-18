@@ -1,24 +1,27 @@
 /* eslint-env node */
-import i18next from 'i18next'
+import { createInstance } from 'i18next'
 import { createApp } from './app.js'
 import resources from './locales/index.js'
 
-const initI18n = () => i18next.init({
-  lng: 'ru',
-  debug: false,
-  resources,
-})
+export const initI18n = () => {
+  const i18nInstance = createInstance()
+  return i18nInstance.init({
+    lng: 'ru',
+    debug: false,
+    resources,
+  }).then(() => i18nInstance)
+}
 
-const initApp = async () => {
+export const initApp = async () => {
   try {
-    await initI18n()
-    const app = createApp()
+    const i18nInstance = await initI18n()
+    const app = createApp(i18nInstance)
 
-    if (process.env.NODE_ENV !== 'production') {
-      window.app = app
+    if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
+      console.log('App initialized:', app)
     }
 
-    return app
+    return { app, i18nInstance }
   }
   catch (error) {
     console.error('Failed to initialize application:', error)

@@ -1,15 +1,14 @@
 /* eslint-env browser */
 import axios from 'axios'
 import * as yup from 'yup'
-import i18next from 'i18next'
 import { stateHelpers } from './state.js'
 
-const createValidationSchema = existingUrls => yup.object().shape({
+const createValidationSchema = (existingUrls, i18n) => yup.object().shape({
   url: yup
     .string()
-    .required(i18next.t('errors.required'))
-    .url(i18next.t('errors.url'))
-    .notOneOf(existingUrls, i18next.t('errors.notOneOf')),
+    .required(i18n.t('errors.required'))
+    .url(i18n.t('errors.url'))
+    .notOneOf(existingUrls, i18n.t('errors.notOneOf')),
 })
 
 const parseRSS = (xmlString) => {
@@ -25,16 +24,16 @@ const parseRSS = (xmlString) => {
 
   const channel = xmlDoc.querySelector('channel')
   const feed = {
-    title: channel.querySelector('title')?.textContent?.trim() || 'Без названия',
-    description: channel.querySelector('description')?.textContent?.trim() || '',
+    title: channel.querySelector('title')?.textContent?.trim(),
+    description: channel.querySelector('description')?.textContent?.trim(),
   }
 
   const items = xmlDoc.querySelectorAll('item')
   const posts = Array.from(items).map(item => ({
-    title: item.querySelector('title')?.textContent?.trim() || 'Без названия',
-    description: item.querySelector('description')?.textContent?.trim() || '',
-    link: item.querySelector('link')?.textContent?.trim() || '',
-    pubDate: item.querySelector('pubDate')?.textContent?.trim() || '',
+    title: item.querySelector('title')?.textContent?.trim(),
+    description: item.querySelector('description')?.textContent?.trim(),
+    link: item.querySelector('link')?.textContent?.trim(),
+    pubDate: item.querySelector('pubDate')?.textContent?.trim(),
   }))
 
   return { feed, posts }
@@ -60,7 +59,7 @@ const loadRSS = (url) => {
         networkError.type = 'network'
         throw networkError
       }
-      if (error.message === 'Network Error') {
+      if (error.isAxiosError || !error.response) {
         error.type = 'network'
       }
       else if (!error.type) {
@@ -70,8 +69,25 @@ const loadRSS = (url) => {
     })
 }
 
-export const createController = (state, view, elements) => {
-  let updateInterval = null
+const applyDefaults = (data, i18n) => {
+  return {
+    feed: {
+      ...data.feed,
+      title: data.feed.title || i18n.t('defaults.feedTitle'),
+      description: data.feed.description || '',
+    },
+    posts: data.posts.map(post => ({
+      ...post,
+      title: post.title || i18n.t('defaults.postTitle'),
+      description: post.description || '',
+      link: post.link || '',
+      pubDate: post.pubDate || '',
+    }))
+  }
+}
+
+export const createController = (state, view, elements, i18n) => {
+  let updateTimeout = null
 
   const handleFormSubmit = (e) => {
     e.preventDefault()
@@ -84,7 +100,7 @@ export const createController = (state, view, elements) => {
     view.render(state)
 
     const existingUrls = stateHelpers.getFeedUrls(state)
-    const schema = createValidationSchema(existingUrls)
+    const schema = createValidationSchema(existingUrls, i18n)
 
     schema
       .validate({ url }, { abortEarly: false })
@@ -94,6 +110,7 @@ export const createController = (state, view, elements) => {
 
         return loadRSS(url)
       })
+      .then(data => applyDefaults(data, i18n))
       .then(({ feed, posts }) => {
         const newFeed = stateHelpers.addFeed(state, { ...feed, url })
         stateHelpers.addPosts(state, posts, newFeed.id)
@@ -119,11 +136,9 @@ export const createController = (state, view, elements) => {
   const handlePostClick = (e) => {
     const link = e.target.closest('a[data-post-id]')
     if (link) {
-      e.preventDefault()
       const postId = link.dataset.postId
       stateHelpers.markPostAsViewed(state, postId)
       view.render(state)
-      window.open(link.href, '_blank', 'noopener,noreferrer')
     }
   }
 
@@ -134,17 +149,21 @@ export const createController = (state, view, elements) => {
       const post = state.posts.find(p => p.id === postId)
       if (post) {
         stateHelpers.markPostAsViewed(state, postId)
-        view.showPostModal(post)
+        view.showPostModal(post, i18n)
         view.render(state)
       }
     }
   }
 
   const updateFeeds = () => {
-    if (state.ui.loading || state.feeds.length === 0) return
+    if (state.ui.loading || state.feeds.length === 0) {
+      scheduleNextUpdate()
+      return
+    }
 
     const updatePromises = state.feeds.map(feed =>
       loadRSS(feed.url)
+        .then(data => applyDefaults(data, i18n))
         .then(({ posts }) => {
           stateHelpers.addPosts(state, posts, feed.id)
         })
@@ -158,16 +177,27 @@ export const createController = (state, view, elements) => {
           view.render(state)
         }
       })
+      .finally(() => {
+        scheduleNextUpdate()
+      })
+  }
+
+  const scheduleNextUpdate = () => {
+    if (updateTimeout) {
+      clearTimeout(updateTimeout)
+    }
+    
+    updateTimeout = setTimeout(() => {
+      updateFeeds()
+    }, 5000)
   }
 
   const startAutoUpdate = () => {
-    if (updateInterval) {
-      clearInterval(updateInterval)
+    if (updateTimeout) {
+      clearTimeout(updateTimeout)
     }
-
-    updateInterval = setInterval(() => {
-      updateFeeds()
-    }, 5000)
+    
+    updateFeeds()
   }
 
   const init = () => {
@@ -185,8 +215,8 @@ export const createController = (state, view, elements) => {
   }
 
   const destroy = () => {
-    if (updateInterval) {
-      clearInterval(updateInterval)
+    if (updateTimeout) {
+      clearTimeout(updateTimeout)
     }
     elements.form.removeEventListener('submit', handleFormSubmit)
   }
