@@ -11,6 +11,7 @@ const createValidationSchema = (existingUrls, i18n) => yup.object().shape({
     .notOneOf(existingUrls, i18n.t('errors.notOneOf')),
 })
 
+// Чистая функция парсера - только извлекает данные
 const parseRSS = (xmlString) => {
   const parser = new DOMParser()
   const xmlDoc = parser.parseFromString(xmlString, 'text/xml')
@@ -39,36 +40,7 @@ const parseRSS = (xmlString) => {
   return { feed, posts }
 }
 
-const loadRSS = (url) => {
-  const proxyUrl = `https://allorigins.hexlet.app/get?disableCache=true&url=${encodeURIComponent(url)}`
-
-  return axios
-    .get(proxyUrl, { timeout: 5000 })
-    .then((response) => {
-      if (response.status !== 200) {
-        throw new Error('Network error')
-      }
-      if (!response.data.contents) {
-        throw new Error('Empty response')
-      }
-      return parseRSS(response.data.contents)
-    })
-    .catch((error) => {
-      if (error.code === 'ECONNABORTED') {
-        const networkError = new Error('Network timeout')
-        networkError.type = 'network'
-        throw networkError
-      }
-      if (error.isAxiosError || !error.response) {
-        error.type = 'network'
-      }
-      else if (!error.type) {
-        error.type = 'network'
-      }
-      throw error
-    })
-}
-
+// Функция для добавления дефолтных значений (отдельно от парсера)
 const applyDefaults = (data, i18n) => {
   return {
     feed: {
@@ -84,6 +56,41 @@ const applyDefaults = (data, i18n) => {
       pubDate: post.pubDate || '',
     }))
   }
+}
+
+const loadRSS = (url, i18n) => {
+  const proxyUrl = `https://allorigins.hexlet.app/get?disableCache=true&url=${encodeURIComponent(url)}`
+
+  return axios
+    .get(proxyUrl, { 
+      timeout: 5000,
+      validateStatus: (status) => status === 200 
+    })
+    .then((response) => {
+      if (!response.data.contents) {
+        const error = new Error('Empty response')
+        error.type = 'emptyResponse'
+        throw error
+      }
+      
+      const parsedData = parseRSS(response.data.contents)
+      return applyDefaults(parsedData, i18n)
+    })
+    .catch((error) => {
+      if (error.code === 'ECONNABORTED') {
+        const timeoutError = new Error('Network timeout')
+        timeoutError.type = 'network'
+        throw timeoutError
+      }
+      
+      if (error.isAxiosError) {
+        error.type = 'network'
+      } else if (!error.type) {
+        error.type = 'unknown'
+      }
+      
+      throw error
+    })
 }
 
 export const createController = (state, view, elements, i18n) => {
@@ -108,9 +115,8 @@ export const createController = (state, view, elements, i18n) => {
         stateHelpers.updateFormStatus(state, 'sending')
         view.render(state)
 
-        return loadRSS(url)
+        return loadRSS(url, i18n)
       })
-      .then(data => applyDefaults(data, i18n))
       .then(({ feed, posts }) => {
         const newFeed = stateHelpers.addFeed(state, { ...feed, url })
         stateHelpers.addPosts(state, posts, newFeed.id)
@@ -125,31 +131,34 @@ export const createController = (state, view, elements, i18n) => {
       .catch((error) => {
         if (error.name === 'ValidationError') {
           stateHelpers.setError(state, error.errors[0])
-        }
-        else {
+        } else {
           stateHelpers.setError(state, error)
         }
+        stateHelpers.updateFormStatus(state, 'error')
         view.render(state)
       })
   }
 
   const handlePostClick = (e) => {
     const link = e.target.closest('a[data-post-id]')
-    if (link) {
-      const postId = link.dataset.postId
-      stateHelpers.markPostAsViewed(state, postId)
-      view.render(state)
-    }
+    if (!link) return
+    
+    // Позволяем браузеру обработать переход по ссылке
+    // Уже есть target="_blank" в HTML
+    const postId = link.dataset.postId
+    stateHelpers.markPostAsViewed(state, postId)
+    view.render(state)
   }
 
   const handlePreviewClick = (e) => {
     const button = e.target.closest('button[data-post-id]')
     if (button) {
+      e.preventDefault()
       const postId = button.dataset.postId
       const post = state.posts.find(p => p.id === postId)
       if (post) {
         stateHelpers.markPostAsViewed(state, postId)
-        view.showPostModal(post, i18n)
+        view.showPostModal(post)
         view.render(state)
       }
     }
@@ -162,8 +171,7 @@ export const createController = (state, view, elements, i18n) => {
     }
 
     const updatePromises = state.feeds.map(feed =>
-      loadRSS(feed.url)
-        .then(data => applyDefaults(data, i18n))
+      loadRSS(feed.url, i18n)
         .then(({ posts }) => {
           stateHelpers.addPosts(state, posts, feed.id)
         })
@@ -219,6 +227,8 @@ export const createController = (state, view, elements, i18n) => {
       clearTimeout(updateTimeout)
     }
     elements.form.removeEventListener('submit', handleFormSubmit)
+    elements.postsContainer.removeEventListener('click', handlePostClick)
+    elements.postsContainer.removeEventListener('click', handlePreviewClick)
   }
 
   return {
