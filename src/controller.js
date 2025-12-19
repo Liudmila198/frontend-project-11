@@ -11,7 +11,6 @@ const createValidationSchema = (existingUrls, i18n) => yup.object().shape({
     .notOneOf(existingUrls, i18n.t('errors.notOneOf')),
 })
 
-// Чистая функция парсера - только извлекает данные
 const parseRSS = (xmlString) => {
   const parser = new DOMParser()
   const xmlDoc = parser.parseFromString(xmlString, 'text/xml')
@@ -40,7 +39,6 @@ const parseRSS = (xmlString) => {
   return { feed, posts }
 }
 
-// Функция для добавления дефолтных значений (отдельно от парсера)
 const applyDefaults = (data, i18n) => {
   return {
     feed: {
@@ -58,7 +56,7 @@ const applyDefaults = (data, i18n) => {
   }
 }
 
-const loadRSS = (url, i18n) => {
+const loadRSS = (url) => {
   const proxyUrl = `https://allorigins.hexlet.app/get?disableCache=true&url=${encodeURIComponent(url)}`
 
   return axios
@@ -72,9 +70,7 @@ const loadRSS = (url, i18n) => {
         error.type = 'emptyResponse'
         throw error
       }
-      
-      const parsedData = parseRSS(response.data.contents)
-      return applyDefaults(parsedData, i18n)
+      return response.data.contents
     })
     .catch((error) => {
       if (error.code === 'ECONNABORTED') {
@@ -103,25 +99,30 @@ export const createController = (state, view, elements, i18n) => {
     if (!url) return
 
     state.form.url = url
-    stateHelpers.updateFormStatus(state, 'validating')
+    state.form.status = 'validating'
+    state.form.error = null
     view.render(state)
 
-    const existingUrls = stateHelpers.getFeedUrls(state)
+    const existingUrls = state.feeds.map(feed => feed.url)
     const schema = createValidationSchema(existingUrls, i18n)
 
     schema
       .validate({ url }, { abortEarly: false })
       .then(() => {
-        stateHelpers.updateFormStatus(state, 'sending')
+        state.form.status = 'sending'
         view.render(state)
 
-        return loadRSS(url, i18n)
+        return loadRSS(url)
       })
-      .then(({ feed, posts }) => {
-        const newFeed = stateHelpers.addFeed(state, { ...feed, url })
-        stateHelpers.addPosts(state, posts, newFeed.id)
+      .then((xmlString) => {
+        const parsedData = parseRSS(xmlString)
+        const { feed, posts } = applyDefaults(parsedData, i18n)
+        
+        const feedId = stateHelpers.addFeed(state, { ...feed, url })
+        stateHelpers.addPosts(state, posts, feedId)
 
-        stateHelpers.updateFormStatus(state, 'success')
+        state.form.status = 'success'
+        state.form.error = null
         view.render(state)
 
         if (state.feeds.length === 1) {
@@ -129,12 +130,15 @@ export const createController = (state, view, elements, i18n) => {
         }
       })
       .catch((error) => {
+        console.error('Form submit error:', error)
+        
         if (error.name === 'ValidationError') {
-          stateHelpers.setError(state, error.errors[0])
+          state.form.error = error.errors[0]
         } else {
-          stateHelpers.setError(state, error)
+          state.form.error = error.type || 'unknown'
         }
-        stateHelpers.updateFormStatus(state, 'error')
+        
+        state.form.status = 'error'
         view.render(state)
       })
   }
@@ -143,10 +147,8 @@ export const createController = (state, view, elements, i18n) => {
     const link = e.target.closest('a[data-post-id]')
     if (!link) return
     
-    // Позволяем браузеру обработать переход по ссылке
-    // Уже есть target="_blank" в HTML
     const postId = link.dataset.postId
-    stateHelpers.markPostAsViewed(state, postId)
+    state.viewedPosts.add(postId)
     view.render(state)
   }
 
@@ -157,7 +159,7 @@ export const createController = (state, view, elements, i18n) => {
       const postId = button.dataset.postId
       const post = state.posts.find(p => p.id === postId)
       if (post) {
-        stateHelpers.markPostAsViewed(state, postId)
+        state.viewedPosts.add(postId)
         view.showPostModal(post)
         view.render(state)
       }
@@ -165,14 +167,16 @@ export const createController = (state, view, elements, i18n) => {
   }
 
   const updateFeeds = () => {
-    if (state.ui.loading || state.feeds.length === 0) {
+    if (state.feeds.length === 0) {
       scheduleNextUpdate()
       return
     }
 
     const updatePromises = state.feeds.map(feed =>
-      loadRSS(feed.url, i18n)
-        .then(({ posts }) => {
+      loadRSS(feed.url)
+        .then((xmlString) => {
+          const parsedData = parseRSS(xmlString)
+          const { posts } = applyDefaults(parsedData, i18n)
           stateHelpers.addPosts(state, posts, feed.id)
         })
         .catch((error) => {
@@ -227,8 +231,6 @@ export const createController = (state, view, elements, i18n) => {
       clearTimeout(updateTimeout)
     }
     elements.form.removeEventListener('submit', handleFormSubmit)
-    elements.postsContainer.removeEventListener('click', handlePostClick)
-    elements.postsContainer.removeEventListener('click', handlePreviewClick)
   }
 
   return {

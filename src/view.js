@@ -1,6 +1,7 @@
 /* eslint-env browser */
+import i18next from 'i18next'
 
-export const createView = (elements, i18n) => {
+export const createView = (elements) => {
   const escapeHtml = (text) => {
     const div = document.createElement('div')
     div.textContent = text
@@ -24,7 +25,7 @@ export const createView = (elements, i18n) => {
       case 'sending':
         submitButton.disabled = true
         urlInput.readOnly = true
-        feedback.textContent = i18n.t('ui.loading')
+        feedback.textContent = i18next.t('ui.loading')
         break
 
       case 'success':
@@ -33,7 +34,7 @@ export const createView = (elements, i18n) => {
         urlInput.value = ''
         urlInput.classList.add('is-valid')
         feedback.classList.add('text-success')
-        feedback.textContent = i18n.t('success.loaded')
+        feedback.textContent = i18next.t('success.loaded')
         urlInput.focus()
         break
 
@@ -43,8 +44,7 @@ export const createView = (elements, i18n) => {
         urlInput.classList.add('is-invalid')
         feedback.classList.add('text-danger')
         if (form.error) {
-          const errorKey = typeof form.error === 'string' ? form.error : form.error.type || 'unknown'
-          feedback.textContent = i18n.t(`errors.${errorKey}`)
+          feedback.textContent = form.error
         }
         break
 
@@ -65,7 +65,7 @@ export const createView = (elements, i18n) => {
     const feedsHtml = `
       <div class="card border-0">
         <div class="card-body">
-          <h2 class="card-title h4">${i18n.t('ui.feeds')}</h2>
+          <h2 class="card-title h4">${i18next.t('ui.feeds')}</h2>
         </div>
         <ul class="list-group border-0 rounded-0">
           ${feeds.map(feed => `
@@ -92,7 +92,7 @@ export const createView = (elements, i18n) => {
     const postsHtml = `
       <div class="card border-0">
         <div class="card-body">
-          <h2 class="card-title h4">${i18n.t('ui.posts')}</h2>
+          <h2 class="card-title h4">${i18next.t('ui.posts')}</h2>
         </div>
         <ul class="list-group border-0 rounded-0">
           ${posts.map((post) => {
@@ -115,7 +115,7 @@ export const createView = (elements, i18n) => {
                   data-bs-toggle="modal" 
                   data-bs-target="#modal"
                 >
-                  ${i18n.t('ui.preview')}
+                  ${i18next.t('ui.preview')}
                 </button>
               </li>
             `
@@ -130,7 +130,7 @@ export const createView = (elements, i18n) => {
   const showPostModal = (post) => {
     const { modal } = elements
     modal.title.textContent = post.title
-    modal.body.textContent = post.description || i18n.t('defaults.noDescription')
+    modal.body.textContent = post.description || i18next.t('defaults.noDescription')
     modal.link.href = post.link
   }
 
