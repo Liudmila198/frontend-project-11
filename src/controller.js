@@ -1,14 +1,15 @@
 /* eslint-env browser */
 import axios from 'axios'
 import * as yup from 'yup'
+import i18next from 'i18next'
 import { stateHelpers } from './state.js'
 
-const createValidationSchema = (existingUrls, i18n) => yup.object().shape({
+const createValidationSchema = existingUrls => yup.object().shape({
   url: yup
     .string()
-    .required(i18n.t('errors.required'))
-    .url(i18n.t('errors.url'))
-    .notOneOf(existingUrls, i18n.t('errors.notOneOf')),
+    .required(i18next.t('errors.required'))
+    .url(i18next.t('errors.url'))
+    .notOneOf(existingUrls, i18next.t('errors.notOneOf')),
 })
 
 const parseRSS = (xmlString) => {
@@ -24,73 +25,53 @@ const parseRSS = (xmlString) => {
 
   const channel = xmlDoc.querySelector('channel')
   const feed = {
-    title: channel.querySelector('title')?.textContent?.trim(),
-    description: channel.querySelector('description')?.textContent?.trim(),
+    title: channel.querySelector('title')?.textContent?.trim() || 'Без названия',
+    description: channel.querySelector('description')?.textContent?.trim() || '',
   }
 
   const items = xmlDoc.querySelectorAll('item')
   const posts = Array.from(items).map(item => ({
-    title: item.querySelector('title')?.textContent?.trim(),
-    description: item.querySelector('description')?.textContent?.trim(),
-    link: item.querySelector('link')?.textContent?.trim(),
-    pubDate: item.querySelector('pubDate')?.textContent?.trim(),
+    title: item.querySelector('title')?.textContent?.trim() || 'Без названия',
+    description: item.querySelector('description')?.textContent?.trim() || '',
+    link: item.querySelector('link')?.textContent?.trim() || '',
+    pubDate: item.querySelector('pubDate')?.textContent?.trim() || '',
   }))
 
   return { feed, posts }
-}
-
-const applyDefaults = (data, i18n) => {
-  return {
-    feed: {
-      ...data.feed,
-      title: data.feed.title || i18n.t('defaults.feedTitle'),
-      description: data.feed.description || '',
-    },
-    posts: data.posts.map(post => ({
-      ...post,
-      title: post.title || i18n.t('defaults.postTitle'),
-      description: post.description || '',
-      link: post.link || '',
-      pubDate: post.pubDate || '',
-    }))
-  }
 }
 
 const loadRSS = (url) => {
   const proxyUrl = `https://allorigins.hexlet.app/get?disableCache=true&url=${encodeURIComponent(url)}`
 
   return axios
-    .get(proxyUrl, { 
-      timeout: 5000,
-      validateStatus: (status) => status === 200 
-    })
+    .get(proxyUrl, { timeout: 5000 })
     .then((response) => {
-      if (!response.data.contents) {
-        const error = new Error('Empty response')
-        error.type = 'emptyResponse'
-        throw error
+      if (response.status !== 200) {
+        throw new Error('Network error')
       }
-      return response.data.contents
+      if (!response.data.contents) {
+        throw new Error('Empty response')
+      }
+      return parseRSS(response.data.contents)
     })
     .catch((error) => {
       if (error.code === 'ECONNABORTED') {
-        const timeoutError = new Error('Network timeout')
-        timeoutError.type = 'network'
-        throw timeoutError
+        const networkError = new Error('Network timeout')
+        networkError.type = 'network'
+        throw networkError
       }
-      
-      if (error.isAxiosError) {
+      if (error.message === 'Network Error') {
         error.type = 'network'
-      } else if (!error.type) {
-        error.type = 'unknown'
       }
-      
+      else if (!error.type) {
+        error.type = 'network'
+      }
       throw error
     })
 }
 
-export const createController = (state, view, elements, i18n) => {
-  let updateTimeout = null
+export const createController = (state, view, elements) => {
+  let updateInterval = null
 
   const handleFormSubmit = (e) => {
     e.preventDefault()
@@ -99,30 +80,25 @@ export const createController = (state, view, elements, i18n) => {
     if (!url) return
 
     state.form.url = url
-    state.form.status = 'validating'
-    state.form.error = null
+    stateHelpers.updateFormStatus(state, 'validating')
     view.render(state)
 
-    const existingUrls = state.feeds.map(feed => feed.url)
-    const schema = createValidationSchema(existingUrls, i18n)
+    const existingUrls = stateHelpers.getFeedUrls(state)
+    const schema = createValidationSchema(existingUrls)
 
     schema
       .validate({ url }, { abortEarly: false })
       .then(() => {
-        state.form.status = 'sending'
+        stateHelpers.updateFormStatus(state, 'sending')
         view.render(state)
 
         return loadRSS(url)
       })
-      .then((xmlString) => {
-        const parsedData = parseRSS(xmlString)
-        const { feed, posts } = applyDefaults(parsedData, i18n)
-        
-        const feedId = stateHelpers.addFeed(state, { ...feed, url })
-        stateHelpers.addPosts(state, posts, feedId)
+      .then(({ feed, posts }) => {
+        const newFeed = stateHelpers.addFeed(state, { ...feed, url })
+        stateHelpers.addPosts(state, posts, newFeed.id)
 
-        state.form.status = 'success'
-        state.form.error = null
+        stateHelpers.updateFormStatus(state, 'success')
         view.render(state)
 
         if (state.feeds.length === 1) {
@@ -130,36 +106,34 @@ export const createController = (state, view, elements, i18n) => {
         }
       })
       .catch((error) => {
-        console.error('Form submit error:', error)
-        
         if (error.name === 'ValidationError') {
-          state.form.error = error.errors[0]
-        } else {
-          state.form.error = error.type || 'unknown'
+          stateHelpers.setError(state, error.errors[0])
         }
-        
-        state.form.status = 'error'
+        else {
+          stateHelpers.setError(state, error)
+        }
         view.render(state)
       })
   }
 
   const handlePostClick = (e) => {
     const link = e.target.closest('a[data-post-id]')
-    if (!link) return
-    
-    const postId = link.dataset.postId
-    state.viewedPosts.add(postId)
-    view.render(state)
+    if (link) {
+      e.preventDefault()
+      const postId = link.dataset.postId
+      stateHelpers.markPostAsViewed(state, postId)
+      view.render(state)
+      window.open(link.href, '_blank', 'noopener,noreferrer')
+    }
   }
 
   const handlePreviewClick = (e) => {
     const button = e.target.closest('button[data-post-id]')
     if (button) {
-      e.preventDefault()
       const postId = button.dataset.postId
       const post = state.posts.find(p => p.id === postId)
       if (post) {
-        state.viewedPosts.add(postId)
+        stateHelpers.markPostAsViewed(state, postId)
         view.showPostModal(post)
         view.render(state)
       }
@@ -167,16 +141,11 @@ export const createController = (state, view, elements, i18n) => {
   }
 
   const updateFeeds = () => {
-    if (state.feeds.length === 0) {
-      scheduleNextUpdate()
-      return
-    }
+    if (state.ui.loading || state.feeds.length === 0) return
 
     const updatePromises = state.feeds.map(feed =>
       loadRSS(feed.url)
-        .then((xmlString) => {
-          const parsedData = parseRSS(xmlString)
-          const { posts } = applyDefaults(parsedData, i18n)
+        .then(({ posts }) => {
           stateHelpers.addPosts(state, posts, feed.id)
         })
         .catch((error) => {
@@ -189,27 +158,16 @@ export const createController = (state, view, elements, i18n) => {
           view.render(state)
         }
       })
-      .finally(() => {
-        scheduleNextUpdate()
-      })
-  }
-
-  const scheduleNextUpdate = () => {
-    if (updateTimeout) {
-      clearTimeout(updateTimeout)
-    }
-    
-    updateTimeout = setTimeout(() => {
-      updateFeeds()
-    }, 5000)
   }
 
   const startAutoUpdate = () => {
-    if (updateTimeout) {
-      clearTimeout(updateTimeout)
+    if (updateInterval) {
+      clearInterval(updateInterval)
     }
-    
-    updateFeeds()
+
+    updateInterval = setInterval(() => {
+      updateFeeds()
+    }, 5000)
   }
 
   const init = () => {
@@ -227,8 +185,8 @@ export const createController = (state, view, elements, i18n) => {
   }
 
   const destroy = () => {
-    if (updateTimeout) {
-      clearTimeout(updateTimeout)
+    if (updateInterval) {
+      clearInterval(updateInterval)
     }
     elements.form.removeEventListener('submit', handleFormSubmit)
   }

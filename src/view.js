@@ -44,7 +44,8 @@ export const createView = (elements) => {
         urlInput.classList.add('is-invalid')
         feedback.classList.add('text-danger')
         if (form.error) {
-          feedback.textContent = form.error
+          const errorKey = typeof form.error === 'string' ? form.error : form.error.type || 'unknown'
+          feedback.textContent = i18next.t(`errors.${errorKey}`)
         }
         break
 
@@ -130,7 +131,7 @@ export const createView = (elements) => {
   const showPostModal = (post) => {
     const { modal } = elements
     modal.title.textContent = post.title
-    modal.body.textContent = post.description || i18next.t('defaults.noDescription')
+    modal.body.textContent = post.description || 'Нет описания'
     modal.link.href = post.link
   }
 
