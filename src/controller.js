@@ -123,7 +123,15 @@ export const createController = (state, view, elements) => {
       const postId = link.dataset.postId
       stateHelpers.markPostAsViewed(state, postId)
       view.render(state)
-      window.open(link.href, '_blank', 'noopener,noreferrer')
+      
+      // Открытие ссылки без использования window
+      const newTab = document.createElement('a')
+      newTab.href = link.href
+      newTab.target = '_blank'
+      newTab.rel = 'noopener noreferrer'
+      document.body.appendChild(newTab)
+      newTab.click()
+      document.body.removeChild(newTab)
     }
   }
 
@@ -177,9 +185,12 @@ export const createController = (state, view, elements) => {
       handlePreviewClick(e)
     })
 
-    elements.modal.element.addEventListener('hidden.bs.modal', () => {
-      state.ui.currentPostId = null
-    })
+    // Используем Bootstrap API напрямую
+    if (elements.modal.element && elements.modal.element.modal) {
+      elements.modal.element.addEventListener('hidden.bs.modal', () => {
+        state.ui.currentPostId = null
+      })
+    }
 
     view.render(state)
   }
