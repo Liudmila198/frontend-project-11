@@ -112,7 +112,6 @@ export const createController = (state, view, elements) => {
       .then(data => {
         // Добавляем значения по умолчанию после парсинга
         const { feed, posts } = addDefaultValues(data)
-        
         const newFeed = stateHelpers.addFeed(state, { ...feed, url })
         stateHelpers.addPosts(state, posts, newFeed.id)
 
@@ -141,7 +140,6 @@ export const createController = (state, view, elements) => {
       const postId = link.dataset.postId
       stateHelpers.markPostAsViewed(state, postId)
       view.render(state)
-      
       const newTab = document.createElement('a')
       newTab.href = link.href
       newTab.target = '_blank'
@@ -171,7 +169,7 @@ export const createController = (state, view, elements) => {
     const updatePromises = state.feeds.map(feed =>
       loadRSS(feed.url)
         .then(data => {
-          const { posts } = addDefaultValues(data)
+          const posts  = addDefaultValues(data)
           stateHelpers.addPosts(state, posts, feed.id)
         })
         .catch((error) => {
