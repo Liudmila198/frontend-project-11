@@ -14,9 +14,9 @@ const initApp = async () => {
     await initI18n()
     const app = createApp()
 
-  if (process.env.NODE_ENV !== 'production' && typeof globalThis !== 'undefined') {
-  globalThis.__DEBUG_APP__ = app
-  }
+    if (process.env.NODE_ENV !== 'production' && typeof globalThis !== 'undefined') {
+      globalThis.__DEBUG_APP__ = app
+    }
 
     return app
   }
