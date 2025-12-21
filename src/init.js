@@ -3,19 +3,31 @@ import i18next from 'i18next'
 import { createApp } from './app.js'
 import resources from './locales/index.js'
 
-const initI18n = () => i18next.init({
-  lng: 'ru',
-  debug: false,
-  resources,
-})
+const createI18nInstance = () => {
+  return i18next.createInstance()
+}
+
+const initI18n = async (i18nInstance) => {
+  return i18nInstance.init({
+    lng: 'ru',
+    debug: false,
+    resources,
+  })
+}
 
 const initApp = async () => {
   try {
-    await initI18n()
-    const app = createApp()
+    // Создаем отдельный инстанс i18next вместо использования глобального
+    const i18nInstance = createI18nInstance()
+    await initI18n(i18nInstance)
+    
+    // Передаем инстанс i18next в приложение
+    const app = createApp(i18nInstance)
 
     if (process.env.NODE_ENV !== 'production' && typeof globalThis !== 'undefined') {
       globalThis.__DEBUG_APP__ = app
+      // Для отладки можно также экспортировать инстанс i18next
+      globalThis.__DEBUG_I18N__ = i18nInstance
     }
 
     return app
@@ -27,3 +39,4 @@ const initApp = async () => {
 }
 
 export default initApp
+export { createI18nInstance } // Экспортируем для тестирования
