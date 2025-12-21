@@ -8,7 +8,7 @@ import { stateHelpers } from './state.js'
 const ERROR_TYPES = {
   NETWORK: 'network',
   EMPTY: 'empty',
-  INVALID_RSS: 'invalidRss'
+  INVALID_RSS: 'invalidRss',
 }
 
 const createValidationSchema = existingUrls => yup.object().shape({
@@ -58,13 +58,11 @@ const loadRSS = (url) => {
         error.type = ERROR_TYPES.NETWORK
         throw error
       }
-      
       if (!response.data.contents) {
         const error = new Error('Empty response')
         error.type = ERROR_TYPES.EMPTY
         throw error
       }
-      
       return parseRSS(response.data.contents)
     })
     .catch((error) => {
@@ -74,12 +72,10 @@ const loadRSS = (url) => {
         timeoutError.type = ERROR_TYPES.NETWORK
         throw timeoutError
       }
-      
       // Если ошибка уже имеет тип, не меняем его
       if (error.type) {
         throw error
       }
-      
       // Обработка Axios ошибок
       if (error.isAxiosError) {
         // Сетевые ошибки (нет соединения, CORS и т.д.)
@@ -91,12 +87,10 @@ const loadRSS = (url) => {
           error.type = ERROR_TYPES.NETWORK
         }
       }
-      
       // Для любых других ошибок устанавливаем тип network по умолчанию
       if (!error.type) {
         error.type = ERROR_TYPES.NETWORK
       }
-      
       throw error
     })
 }
@@ -155,7 +149,8 @@ export const createController = (state, view, elements) => {
       .catch((error) => {
         if (error.name === 'ValidationError') {
           stateHelpers.setError(state, error.errors[0])
-        } else {
+        }
+        else {
           stateHelpers.setError(state, error)
         }
         view.render(state)
