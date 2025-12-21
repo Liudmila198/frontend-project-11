@@ -213,7 +213,7 @@ export const createController = (state, view, elements) => {
       clearInterval(updateInterval)
     }
 
-    updateInterval = setInterval(() => {
+    updateInterval = setTimeout(() => {
       updateFeeds()
     }, 5000)
   }
