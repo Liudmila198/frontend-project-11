@@ -25,16 +25,16 @@ const parseRSS = (xmlString) => {
 
   const channel = xmlDoc.querySelector('channel')
   const feed = {
-    title: channel.querySelector('title')?.textContent?.trim() || 'Без названия',
-    description: channel.querySelector('description')?.textContent?.trim() || '',
+    title: channel.querySelector('title')?.textContent,
+    description: channel.querySelector('description')?.textContent,
   }
 
   const items = xmlDoc.querySelectorAll('item')
   const posts = Array.from(items).map(item => ({
-    title: item.querySelector('title')?.textContent?.trim() || 'Без названия',
-    description: item.querySelector('description')?.textContent?.trim() || '',
-    link: item.querySelector('link')?.textContent?.trim() || '',
-    pubDate: item.querySelector('pubDate')?.textContent?.trim() || '',
+    title: item.querySelector('title')?.textContent,
+    description: item.querySelector('description')?.textContent,
+    link: item.querySelector('link')?.textContent,
+    pubDate: item.querySelector('pubDate')?.textContent,
   }))
 
   return { feed, posts }
@@ -70,6 +70,21 @@ const loadRSS = (url) => {
     })
 }
 
+const addDefaultValues = (data) => {
+  return {
+    feed: {
+      title: (data.feed.title && data.feed.title.trim()) || i18next.t('defaults.feedTitle'),
+      description: (data.feed.description && data.feed.description.trim()) || '',
+    },
+    posts: data.posts.map(post => ({
+      title: (post.title && post.title.trim()) || i18next.t('defaults.postTitle'),
+      description: (post.description && post.description.trim()) || '',
+      link: (post.link && post.link.trim()) || '#',
+      pubDate: (post.pubDate && post.pubDate.trim()) || '',
+    }))
+  }
+}
+
 export const createController = (state, view, elements) => {
   let updateInterval = null
 
@@ -94,7 +109,10 @@ export const createController = (state, view, elements) => {
 
         return loadRSS(url)
       })
-      .then(({ feed, posts }) => {
+      .then(data => {
+        // Добавляем значения по умолчанию после парсинга
+        const { feed, posts } = addDefaultValues(data)
+        
         const newFeed = stateHelpers.addFeed(state, { ...feed, url })
         stateHelpers.addPosts(state, posts, newFeed.id)
 
@@ -123,7 +141,7 @@ export const createController = (state, view, elements) => {
       const postId = link.dataset.postId
       stateHelpers.markPostAsViewed(state, postId)
       view.render(state)
-      // Открытие ссылки без использования window
+      
       const newTab = document.createElement('a')
       newTab.href = link.href
       newTab.target = '_blank'
@@ -152,7 +170,8 @@ export const createController = (state, view, elements) => {
 
     const updatePromises = state.feeds.map(feed =>
       loadRSS(feed.url)
-        .then(({ posts }) => {
+        .then(data => {
+          const { posts } = addDefaultValues(data)
           stateHelpers.addPosts(state, posts, feed.id)
         })
         .catch((error) => {
@@ -184,7 +203,6 @@ export const createController = (state, view, elements) => {
       handlePreviewClick(e)
     })
 
-    // Используем Bootstrap API напрямую
     if (elements.modal.element && elements.modal.element.modal) {
       elements.modal.element.addEventListener('hidden.bs.modal', () => {
         state.ui.currentPostId = null
