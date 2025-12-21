@@ -22,6 +22,7 @@ const ru = {
       noFeeds: 'Фиды не добавлены',
       noPosts: 'Посты не найдены',
       example: 'Пример: https://lorem-rss.hexlet.app/feed',
+      noDescription: 'Нет описания',
     },
   },
 }

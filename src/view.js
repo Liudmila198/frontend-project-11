@@ -131,7 +131,7 @@ export const createView = (elements) => {
   const showPostModal = (post) => {
     const { modal } = elements
     modal.title.textContent = post.title
-    modal.body.textContent = post.description || 'Нет описания'
+    modal.body.textContent = post.description || i18next.t('ui.noDescription')
     modal.link.href = post.link
   }
 
