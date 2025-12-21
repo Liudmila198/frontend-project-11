@@ -123,7 +123,6 @@ export const createController = (state, view, elements) => {
       const postId = link.dataset.postId
       stateHelpers.markPostAsViewed(state, postId)
       view.render(state)
-      
       // Открытие ссылки без использования window
       const newTab = document.createElement('a')
       newTab.href = link.href
