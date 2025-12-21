@@ -4,6 +4,13 @@ import * as yup from 'yup'
 import i18next from 'i18next'
 import { stateHelpers } from './state.js'
 
+// Константы для типов ошибок
+const ERROR_TYPES = {
+  NETWORK: 'network',
+  EMPTY: 'empty',
+  INVALID_RSS: 'invalidRss'
+}
+
 const createValidationSchema = existingUrls => yup.object().shape({
   url: yup
     .string()
@@ -19,7 +26,7 @@ const parseRSS = (xmlString) => {
   const parseError = xmlDoc.querySelector('parsererror')
   if (parseError) {
     const error = new Error('Invalid RSS')
-    error.type = 'invalidRss'
+    error.type = ERROR_TYPES.INVALID_RSS
     throw error
   }
 
@@ -47,25 +54,49 @@ const loadRSS = (url) => {
     .get(proxyUrl, { timeout: 5000 })
     .then((response) => {
       if (response.status !== 200) {
-        throw new Error('Network error')
+        const error = new Error('Network error')
+        error.type = ERROR_TYPES.NETWORK
+        throw error
       }
+      
       if (!response.data.contents) {
-        throw new Error('Empty response')
+        const error = new Error('Empty response')
+        error.type = ERROR_TYPES.EMPTY
+        throw error
       }
+      
       return parseRSS(response.data.contents)
     })
     .catch((error) => {
+      // Обработка таймаута
       if (error.code === 'ECONNABORTED') {
-        const networkError = new Error('Network timeout')
-        networkError.type = 'network'
-        throw networkError
+        const timeoutError = new Error('Network timeout')
+        timeoutError.type = ERROR_TYPES.NETWORK
+        throw timeoutError
       }
-      if (error.message === 'Network Error') {
-        error.type = 'network'
+      
+      // Если ошибка уже имеет тип, не меняем его
+      if (error.type) {
+        throw error
       }
-      else if (!error.type) {
-        error.type = 'network'
+      
+      // Обработка Axios ошибок
+      if (error.isAxiosError) {
+        // Сетевые ошибки (нет соединения, CORS и т.д.)
+        if (!error.response) {
+          error.type = ERROR_TYPES.NETWORK
+        } 
+        // HTTP ошибки (4xx, 5xx)
+        else if (error.response.status >= 400) {
+          error.type = ERROR_TYPES.NETWORK
+        }
       }
+      
+      // Для любых других ошибок устанавливаем тип network по умолчанию
+      if (!error.type) {
+        error.type = ERROR_TYPES.NETWORK
+      }
+      
       throw error
     })
 }
@@ -110,7 +141,6 @@ export const createController = (state, view, elements) => {
         return loadRSS(url)
       })
       .then((data) => {
-        // Добавляем значения по умолчанию после парсинга
         const { feed, posts } = addDefaultValues(data)
         const newFeed = stateHelpers.addFeed(state, { ...feed, url })
         stateHelpers.addPosts(state, posts, newFeed.id)
@@ -125,8 +155,7 @@ export const createController = (state, view, elements) => {
       .catch((error) => {
         if (error.name === 'ValidationError') {
           stateHelpers.setError(state, error.errors[0])
-        }
-        else {
+        } else {
           stateHelpers.setError(state, error)
         }
         view.render(state)
@@ -169,7 +198,7 @@ export const createController = (state, view, elements) => {
     const updatePromises = state.feeds.map(feed =>
       loadRSS(feed.url)
         .then((data) => {
-          const posts = addDefaultValues(data)
+          const { posts } = addDefaultValues(data)
           stateHelpers.addPosts(state, posts, feed.id)
         })
         .catch((error) => {
