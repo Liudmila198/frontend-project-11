@@ -81,7 +81,7 @@ const loadRSS = (url) => {
         // Сетевые ошибки (нет соединения, CORS и т.д.)
         if (!error.response) {
           error.type = ERROR_TYPES.NETWORK
-        } 
+        }
         // HTTP ошибки (4xx, 5xx)
         else if (error.response.status >= 400) {
           error.type = ERROR_TYPES.NETWORK
