@@ -81,7 +81,7 @@ const addDefaultValues = (data) => {
       description: (post.description && post.description.trim()) || '',
       link: (post.link && post.link.trim()) || '#',
       pubDate: (post.pubDate && post.pubDate.trim()) || '',
-    }))
+    })),
   }
 }
 
@@ -109,7 +109,7 @@ export const createController = (state, view, elements) => {
 
         return loadRSS(url)
       })
-      .then(data => {
+      .then((data) => {
         // Добавляем значения по умолчанию после парсинга
         const { feed, posts } = addDefaultValues(data)
         const newFeed = stateHelpers.addFeed(state, { ...feed, url })
@@ -168,8 +168,8 @@ export const createController = (state, view, elements) => {
 
     const updatePromises = state.feeds.map(feed =>
       loadRSS(feed.url)
-        .then(data => {
-          const posts  = addDefaultValues(data)
+        .then((data) => {
+          const posts = addDefaultValues(data)
           stateHelpers.addPosts(state, posts, feed.id)
         })
         .catch((error) => {
