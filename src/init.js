@@ -24,14 +24,11 @@ const initApp = async () => {
   try {
     // Используем глобальный инстанс для совместимости
     await initI18n()
-    
     // Проверяем, что i18next инициализирован
     if (!i18next.isInitialized) {
       throw new Error('i18next failed to initialize')
     }
-    
     const app = createApp()
-
     if (process.env.NODE_ENV !== 'production' && typeof globalThis !== 'undefined') {
       globalThis.__DEBUG_APP__ = app
       globalThis.__DEBUG_I18N__ = i18next
