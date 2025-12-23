@@ -4,7 +4,6 @@ import * as yup from 'yup'
 import i18next from 'i18next'
 import { stateHelpers } from './state.js'
 
-// Константы для типов ошибок
 const ERROR_TYPES = {
   NETWORK: 'network',
   EMPTY: 'empty',
@@ -66,28 +65,22 @@ const loadRSS = (url) => {
       return parseRSS(response.data.contents)
     })
     .catch((error) => {
-      // Обработка таймаута
       if (error.code === 'ECONNABORTED') {
         const timeoutError = new Error('Network timeout')
         timeoutError.type = ERROR_TYPES.NETWORK
         throw timeoutError
       }
-      // Если ошибка уже имеет тип, не меняем его
       if (error.type) {
         throw error
       }
-      // Обработка Axios ошибок
       if (error.isAxiosError) {
-        // Сетевые ошибки (нет соединения, CORS и т.д.)
         if (!error.response) {
           error.type = ERROR_TYPES.NETWORK
         }
-        // HTTP ошибки (4xx, 5xx)
         else if (error.response.status >= 400) {
           error.type = ERROR_TYPES.NETWORK
         }
       }
-      // Для любых других ошибок устанавливаем тип network по умолчанию
       if (!error.type) {
         error.type = ERROR_TYPES.NETWORK
       }

@@ -7,7 +7,6 @@ const createI18nInstance = () => {
   return i18next.createInstance()
 }
 
-// Инициализация i18next с возможностью передачи кастомного инстанса
 const initI18n = async (i18nInstance = i18next) => {
   return i18nInstance.init({
     lng: 'ru',
@@ -22,9 +21,7 @@ const initI18n = async (i18nInstance = i18next) => {
 
 const initApp = async () => {
   try {
-    // Используем глобальный инстанс для совместимости
     await initI18n()
-    // Проверяем, что i18next инициализирован
     if (!i18next.isInitialized) {
       throw new Error('i18next failed to initialize')
     }
